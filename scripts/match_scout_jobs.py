@@ -41,8 +41,17 @@ from matching import (
 from matching.tfidf_matcher import compute_tfidf_similarity
 
 
-def score_job(profile: dict, job: dict) -> dict:
-    """Score one adapted job against a profile. Returns dict (never raises)."""
+def score_job(profile: dict, job: dict, candidate_years: float | None = None,
+               profile_skill_names: set | None = None) -> dict:
+    """Score one adapted job against a profile.
+
+    For batch use, precompute candidate_years and profile_skill_names once
+    and pass them in — avoids recomputing per job.
+
+    Note: Assumes profile and job are well-formed (profile passed schema
+    validation, job was produced by the adapter). Malformed input (e.g.,
+    skills missing 'name' key) will raise KeyError.
+    """
     # Hard filter: deal-breakers
     passes, db_reason = check_deal_breakers(profile, job)
     if not passes:
@@ -55,9 +64,11 @@ def score_job(profile: dict, job: dict) -> dict:
             "url": (job.get("_source") or {}).get("url"),
         }
 
-    # Precompute profile-only values
-    candidate_years = _calculate_years_experience(profile)
-    profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
+    # Lazy-compute profile-only values if not precomputed
+    if candidate_years is None:
+        candidate_years = _calculate_years_experience(profile)
+    if profile_skill_names is None:
+        profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
 
     req = score_required_skills(profile, job)
     exp = score_experience(profile, job, candidate_years=candidate_years)
@@ -86,7 +97,16 @@ def score_job(profile: dict, job: dict) -> dict:
 def match_scout_jobs(profile: dict, scout_db_path: Path) -> list[dict]:
     """End-to-end: load → adapt → score → sort."""
     jobs = load_jobs_from_scout_db(scout_db_path)
-    results = [score_job(profile, job) for job in jobs]
+
+    # Precompute profile-only values once (not per job)
+    candidate_years = _calculate_years_experience(profile)
+    profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
+
+    results = [
+        score_job(profile, job, candidate_years=candidate_years,
+                  profile_skill_names=profile_skill_names)
+        for job in jobs
+    ]
     # Sort: blocked go last (still listed so user sees what was filtered)
     results.sort(key=lambda r: (r.get("blocked", False), -r["overall_score"]))
     return results

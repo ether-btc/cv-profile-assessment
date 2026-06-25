@@ -26,7 +26,7 @@ import json
 import re
 import sqlite3
 from pathlib import Path
-from typing import Any, Iterable
+from typing import Any
 
 
 # -----------------------------------------------------------------------------
@@ -144,22 +144,21 @@ def adapt_austria_jobs_row(row: sqlite3.Row | dict) -> dict:
         the required fields: title, company, location, required_skills,
         preferred_skills, description. Other fields may be empty/None.
     """
-    # sqlite3.Row supports dict-style access; plain dict works the same way.
-    get = row.__getitem__ if isinstance(row, sqlite3.Row) else row.__getitem__
+    # sqlite3.Row and dict both support __getitem__; no need to distinguish.
 
-    salary_min = get("salary_min") or None
-    salary_max = get("salary_max") or None
-    salary_currency = get("salary_currency") or "EUR"
-    salary_period = get("salary_period") or "yearly"
+    salary_min = row["salary_min"] or None
+    salary_max = row["salary_max"] or None
+    salary_currency = row["salary_currency"] or "EUR"
+    salary_period = row["salary_period"] or "yearly"
 
-    description = get("description") or ""
-    required_skills = parse_skills_json(get("skills_json"))
+    description = row["description"] or ""
+    required_skills = parse_skills_json(row["skills_json"])
 
     return {
-        "title": get("title") or "",
-        "company": get("company") or "",
-        "location": get("location") or "",
-        "remote": remote_policy_to_bool(get("remote_policy")),
+        "title": row["title"] or "",
+        "company": row["company"] or "",
+        "location": row["location"] or "",
+        "remote": remote_policy_to_bool(row["remote_policy"]),
         "description": description,
         "requirements": [],   # scout stores skills in skills_json; requirements
                               # are recoverable from description but we don't
@@ -173,13 +172,13 @@ def adapt_austria_jobs_row(row: sqlite3.Row | dict) -> dict:
             "currency": salary_currency,
             "period": salary_period,
         },
-        "seniority_level": normalize_seniority(get("seniority")),
+        "seniority_level": normalize_seniority(row["seniority"]),
         # Provenance — useful for debugging, doesn't affect matching
         "_source": {
-            "ats": get("ats"),
-            "url": get("url"),
-            "source_domain": get("source_domain"),
-            "scout_job_id": get("id"),
+            "ats": row["ats"],
+            "url": row["url"],
+            "source_domain": row["source_domain"],
+            "scout_job_id": row["id"],
         },
     }
 
@@ -242,7 +241,7 @@ def load_jobs_from_scout_db(db_path: str | Path, status: str = "active") -> list
     try:
         if status is not None:
             query = "SELECT * FROM austria_jobs WHERE status = ? ORDER BY first_seen_at DESC"
-            rows: Iterable = conn.execute(query, (status,)).fetchall()
+            rows = conn.execute(query, (status,)).fetchall()
         else:
             query = "SELECT * FROM austria_jobs ORDER BY first_seen_at DESC"
             rows = conn.execute(query).fetchall()

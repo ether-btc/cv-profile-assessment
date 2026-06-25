@@ -16,7 +16,7 @@ Default output: <project>/db/austria_job_scout_sample.sqlite
 from __future__ import annotations
 
 import json
-import shutil
+import os
 import sqlite3
 import sys
 import time
@@ -29,8 +29,12 @@ sys.path.insert(0, str(PROJECT_ROOT))
 # package layout. If the package is on PYTHONPATH or installed, we use its
 # schema.sql; otherwise we fall back to the project's bundled copy.
 
+# Locate the austria-job-scout schema. Prefer an env var override, then the
+# sibling project checkout, then the bundled fixture in tests/fixtures/.
+_SCOUT_PROJECT_DEFAULT = Path("/home/hermes-pi/projects/austria-job-scout/austria_job_scout/schema.sql")
 SCHEMA_CANDIDATES = [
-    Path("/home/hermes-pi/projects/austria-job-scout/austria_job_scout/schema.sql"),
+    Path(os.environ.get("SCOUT_SCHEMA_PATH", "")),
+    _SCOUT_PROJECT_DEFAULT,
     PROJECT_ROOT / "tests" / "fixtures" / "scout_schema.sql",
 ]
 
@@ -40,7 +44,7 @@ DEFAULT_OUTPUT = PROJECT_ROOT / "db" / "austria_job_scout_sample.sqlite"
 
 def find_schema_path() -> Path:
     for p in SCHEMA_CANDIDATES:
-        if p.exists():
+        if p.is_file():
             return p
     raise FileNotFoundError(
         "Could not find austria-job-scout schema.sql. Looked at:\n  "

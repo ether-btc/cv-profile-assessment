@@ -34,7 +34,6 @@ from scripts.seed_scout_db_from_samples import build_db  # noqa: E402
 SCHEMA_PATH = PROJECT_ROOT / "tests" / "fixtures" / "scout_schema.sql"
 SAMPLES_DIR = PROJECT_ROOT / "data" / "sample_jobs"
 PROFILES_DIR = PROJECT_ROOT / "data" / "sample_profiles"
-SAMPLE_CVS_DIR = PROJECT_ROOT / "data" / "sample_cvs"
 
 
 # ---------------------------------------------------------------------------
@@ -147,7 +146,7 @@ class TestAdaptRow(unittest.TestCase):
     """Test adapt_austria_jobs_row with a synthetic sqlite3.Row."""
 
     def _make_row(self, **overrides):
-        """Build a sqlite3.Row matching the austria_jobs schema."""
+        """Build a sqlite3.Row matching the austria_jobs schema (in-memory)."""
         base = {
             "id": 1,
             "url": "https://example.com/job/1",
@@ -177,26 +176,20 @@ class TestAdaptRow(unittest.TestCase):
             "status": "active",
         }
         base.update(overrides)
-        # Insert into a temp DB to get a proper sqlite3.Row
-        with tempfile.NamedTemporaryFile(suffix=".sqlite", delete=False) as tmp:
-            conn = sqlite3.connect(tmp.name)
-            conn.row_factory = sqlite3.Row
-            cols = ",".join(base.keys())
-            placeholders = ",".join(["?"] * len(base))
-            conn.execute(
-                f"CREATE TABLE austria_jobs ({cols})",
-            )
-            conn.execute(
-                f"INSERT INTO austria_jobs VALUES ({placeholders})",
-                list(base.values()),
-            )
-            row = conn.execute("SELECT * FROM austria_jobs").fetchone()
-            conn.close()
+        # In-memory DB — no temp files to clean up
+        conn = sqlite3.connect(":memory:")
+        conn.row_factory = sqlite3.Row
+        cols = ",".join(base.keys())
+        placeholders = ",".join(["?"] * len(base))
+        conn.execute(f"CREATE TABLE austria_jobs ({cols})")
+        conn.execute(f"INSERT INTO austria_jobs VALUES ({placeholders})", list(base.values()))
+        row = conn.execute("SELECT * FROM austria_jobs").fetchone()
+        conn.close()
         return row
 
     def test_basic_mapping(self):
         row = self._make_row()
-        job = adapt_australia_jobs_row_unwrapped(row)
+        job = adapt_austria_jobs_row(row)
         self.assertEqual(job["title"], "Backend Engineer")
         self.assertEqual(job["company"], "TestCo GmbH")
         self.assertEqual(job["location"], "Vienna")
@@ -214,17 +207,17 @@ class TestAdaptRow(unittest.TestCase):
 
     def test_remote_onsite(self):
         row = self._make_row(remote_policy="on_site")
-        job = adapt_australia_jobs_row_unwrapped(row)
+        job = adapt_austria_jobs_row(row)
         self.assertFalse(job["remote"])
 
     def test_remote_unknown_default_false(self):
         row = self._make_row(remote_policy="unknown")
-        job = adapt_australia_jobs_row_unwrapped(row)
+        job = adapt_austria_jobs_row(row)
         self.assertFalse(job["remote"])
 
     def test_null_salary_safe(self):
         row = self._make_row(salary_min=None, salary_max=None)
-        job = adapt_australia_jobs_row_unwrapped(row)
+        job = adapt_austria_jobs_row(row)
         self.assertIsNone(job["salary_range"]["min"])
         self.assertIsNone(job["salary_range"]["max"])
         # Currency defaults to EUR
@@ -232,18 +225,13 @@ class TestAdaptRow(unittest.TestCase):
 
     def test_invalid_skills_json_safe(self):
         row = self._make_row(skills_json="not valid json")
-        job = adapt_australia_jobs_row_unwrapped(row)
+        job = adapt_austria_jobs_row(row)
         self.assertEqual(job["required_skills"], [])
 
     def test_min_years_default_zero(self):
         row = self._make_row(description="A fun role at a great company.")
-        job = adapt_australia_jobs_row_unwrapped(row)
+        job = adapt_austria_jobs_row(row)
         self.assertEqual(job["min_years_experience"], 0)
-
-
-def adapt_australia_jobs_row_unwrapped(row):
-    """Thin wrapper since adapt_australia_jobs_row expects sqlite3.Row or dict."""
-    return adapt_austria_jobs_row(row)
 
 
 # ---------------------------------------------------------------------------
