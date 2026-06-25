@@ -1,0 +1,21 @@
+{
+  "name": "cv-profile-assessment",
+  "display_name": "CV Profile Assessment",
+  "description": "Privacy-focused CV/resume parser and job-candidate matching engine. Local execution, no external API calls. Synergizes with austria-job-scout skill.",
+  "topics": [
+    "cv-parser",
+    "resume-parser",
+    "job-matching",
+    "skills-extraction",
+    "esco-ontology",
+    "spacy",
+    "tfidf",
+    "raspberry-pi",
+    "privacy-first",
+    "gdpr",
+    "austrian-jobs",
+    "hermes-agent",
+    "python",
+    "cli"
+  ]
+}
