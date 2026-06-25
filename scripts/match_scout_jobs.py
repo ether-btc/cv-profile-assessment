@@ -1,14 +1,15 @@
+#!/usr/bin/env python3
 """CLI: Match a profile against jobs from an austria-job-scout SQLite database.
 
 Pipeline:
   1. Load profile (JSON)
   2. Query austria-job-scout DB for active jobs
   3. Adapt rows → cv-profile-assessment job schema (via scout_adapter)
-  4. Run the matching engine
+  4. Run the shared scoring pipeline (matching.pipeline.score_one_job)
   5. Output ranked results (JSON to stdout or file)
 
 Usage:
-  python match_scout_jobs.py <profile.json> <scout_db.sqlite> [-o output.json]
+    python match_scout_jobs.py <profile.json> <scout_db.sqlite> [-o output.json]
 
 Exit codes:
   0  success (results written or printed)
@@ -29,69 +30,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from integration.scout_adapter import load_jobs_from_scout_db
-from matching import (
-    check_deal_breakers,
-    compute_overall_score,
-    DEFAULT_WEIGHTS,
-    _calculate_years_experience,
-    score_experience,
-    score_preferred,
-    score_required_skills,
-)
-from matching.tfidf_matcher import compute_tfidf_similarity
-
-
-def score_job(profile: dict, job: dict, candidate_years: float | None = None,
-               profile_skill_names: set | None = None) -> dict:
-    """Score one adapted job against a profile.
-
-    For batch use, precompute candidate_years and profile_skill_names once
-    and pass them in — avoids recomputing per job.
-
-    Note: Assumes profile and job are well-formed (profile passed schema
-    validation, job was produced by the adapter). Malformed input (e.g.,
-    skills missing 'name' key) will raise KeyError.
-    """
-    # Hard filter: deal-breakers
-    passes, db_reason = check_deal_breakers(profile, job)
-    if not passes:
-        return {
-            "job_title": job.get("title", "Unknown"),
-            "company": job.get("company", "Unknown"),
-            "overall_score": 0.0,
-            "blocked": True,
-            "block_reason": db_reason,
-            "url": (job.get("_source") or {}).get("url"),
-        }
-
-    # Lazy-compute profile-only values if not precomputed
-    if candidate_years is None:
-        candidate_years = _calculate_years_experience(profile)
-    if profile_skill_names is None:
-        profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
-
-    req = score_required_skills(profile, job)
-    exp = score_experience(profile, job, candidate_years=candidate_years)
-    pref = score_preferred(profile, job, profile_skill_names=profile_skill_names)
-    kw = compute_tfidf_similarity(profile, job)
-
-    return {
-        "job_title": job.get("title", "Unknown"),
-        "company": job.get("company", "Unknown"),
-        "location": job.get("location", ""),
-        "remote": job.get("remote", False),
-        "url": (job.get("_source") or {}).get("url"),
-        "ats": (job.get("_source") or {}).get("ats"),
-        "overall_score": compute_overall_score(req, exp, pref, kw),
-        "blocked": False,
-        "component_scores": {
-            "required_skills": round(req, 4),
-            "experience": round(exp, 4),
-            "preferred": round(pref, 4),
-            "keyword_tfidf": round(kw, 4),
-        },
-        "weights": DEFAULT_WEIGHTS,
-    }
+from matching import score_one_job, _calculate_years_experience
 
 
 def match_scout_jobs(profile: dict, scout_db_path: Path) -> list[dict]:
@@ -103,8 +42,11 @@ def match_scout_jobs(profile: dict, scout_db_path: Path) -> list[dict]:
     profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
 
     results = [
-        score_job(profile, job, candidate_years=candidate_years,
-                  profile_skill_names=profile_skill_names)
+        score_one_job(
+            profile, job,
+            candidate_years=candidate_years,
+            profile_skill_names=profile_skill_names,
+        )
         for job in jobs
     ]
     # Sort: blocked go last (still listed so user sees what was filtered)

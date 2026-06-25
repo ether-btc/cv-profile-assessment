@@ -13,12 +13,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from matching import (
-    compute_tfidf_similarity,
-    check_deal_breakers,
-    score_required_skills,
-    score_experience,
-    score_preferred,
-    compute_overall_score,
+    score_one_job,
     DEFAULT_WEIGHTS,
     _calculate_years_experience,
 )
@@ -41,45 +36,14 @@ def match_profile_to_jobs(profile: dict, jobs: list) -> list:
     candidate_years = _calculate_years_experience(profile)
     profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
 
-    results = []
-
-    for job in jobs:
-        # Stage 1: Deal-breakers (hard filter)
-        passes, db_reason = check_deal_breakers(profile, job)
-        if not passes:
-            results.append({
-                "job_title": job.get("title", "Unknown"),
-                "company": job.get("company", "Unknown"),
-                "overall_score": 0.0,
-                "blocked": True,
-                "block_reason": db_reason,
-            })
-            continue
-
-        # Stage 2: Component scores (profile-only values passed in)
-        req_score = score_required_skills(profile, job)
-        exp_score = score_experience(profile, job, candidate_years=candidate_years)
-        pref_score = score_preferred(profile, job, profile_skill_names=profile_skill_names)
-        kw_score = compute_tfidf_similarity(profile, job)
-
-        # Stage 3: Weighted overall
-        overall = compute_overall_score(req_score, exp_score, pref_score, kw_score)
-
-        results.append({
-            "job_title": job.get("title", "Unknown"),
-            "company": job.get("company", "Unknown"),
-            "location": job.get("location", ""),
-            "remote": job.get("remote", False),
-            "overall_score": overall,
-            "blocked": False,
-            "component_scores": {
-                "required_skills": round(req_score, 4),
-                "experience": round(exp_score, 4),
-                "preferred": round(pref_score, 4),
-                "keyword_tfidf": round(kw_score, 4),
-            },
-            "weights": DEFAULT_WEIGHTS,
-        })
+    results = [
+        score_one_job(
+            profile, job,
+            candidate_years=candidate_years,
+            profile_skill_names=profile_skill_names,
+        )
+        for job in jobs
+    ]
 
     # Sort by score descending
     results.sort(key=lambda r: r["overall_score"], reverse=True)

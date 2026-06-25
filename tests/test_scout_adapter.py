@@ -28,6 +28,7 @@ from integration.scout_adapter import (  # noqa: E402
     parse_skills_json,
     remote_policy_to_bool,
 )
+from matching import score_one_job  # noqa: E402
 from scripts.match_scout_jobs import match_scout_jobs  # noqa: E402
 from scripts.seed_scout_db_from_samples import build_db  # noqa: E402
 
@@ -366,6 +367,80 @@ class TestEndToEnd(unittest.TestCase):
         self.assertGreater(len(unblocked), 0)
         top = unblocked[0]
         self.assertIn("frontend", top["job_title"].lower())
+
+
+# ---------------------------------------------------------------------------
+# Shared pipeline unit tests (score_one_job)
+# ---------------------------------------------------------------------------
+
+class TestScoreOneJob(unittest.TestCase):
+    """Direct unit tests for the shared scoring pipeline."""
+
+    _PROFILE = {
+        "basics": {"name": "Test Candidate"},
+        "skills": [
+            {"name": "python", "proficiency": "expert"},
+            {"name": "docker", "proficiency": "advanced"},
+            {"name": "postgresql", "proficiency": "intermediate"},
+        ],
+        "experience": [
+            {"position": "Backend Dev", "startDate": "2018-01-01", "endDate": "2025-01-01"}
+        ],
+    }
+
+    _JOB_GOOD = {
+        "title": "Backend Engineer",
+        "company": "TestCo",
+        "required_skills": ["python", "docker"],
+        "preferred_skills": ["postgresql"],
+        "min_years_experience": 3,
+        "description": "Python backend with Docker.",
+    }
+
+    _JOB_BLOCKED = {
+        "title": "Legacy PHP Dev",
+        "company": "OldCo",
+        "required_skills": ["php"],
+        "description": "Maintain legacy PHP application.",
+    }
+
+    def test_normal_score(self):
+        """score_one_job returns expected component breakdown."""
+        result = score_one_job(self._PROFILE, self._JOB_GOOD)
+        self.assertFalse(result["blocked"])
+        self.assertGreater(result["overall_score"], 0.3)
+        self.assertIn("component_scores", result)
+        scores = result["component_scores"]
+        # Python+docker are both present → required_skills should be high
+        self.assertGreaterEqual(scores["required_skills"], 0.8)
+        # PostgreSQL is preferred and present → preferred should be 1.0
+        self.assertEqual(scores["preferred"], 1.0)
+
+    def test_blocked_by_deal_breaker(self):
+        """score_one_job marks blocked when deal-breaker matches."""
+        profile = dict(self._PROFILE)
+        profile["preferences"] = {"deal_breakers": ["php"]}
+        result = score_one_job(profile, self._JOB_BLOCKED)
+        self.assertTrue(result["blocked"])
+        self.assertEqual(result["overall_score"], 0.0)
+        self.assertIn("block_reason", result)
+
+    def test_precompute_gives_same_result(self):
+        """Passing precomputed values gives identical score."""
+        r1 = score_one_job(self._PROFILE, self._JOB_GOOD)
+        r2 = score_one_job(
+            self._PROFILE, self._JOB_GOOD,
+            candidate_years=7,
+            profile_skill_names={"python", "docker", "postgresql"},
+        )
+        self.assertEqual(r1["overall_score"], r2["overall_score"])
+
+    def test_no_required_skills_scores_neutral(self):
+        """Jobs with no required_skills don't crash and get req_score=1.0."""
+        job = {"title": "Generic Role", "company": "Co", "description": "A job."}
+        result = score_one_job(self._PROFILE, job)
+        self.assertFalse(result["blocked"])
+        self.assertEqual(result["component_scores"]["required_skills"], 1.0)
 
 
 if __name__ == "__main__":

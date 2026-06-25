@@ -11,6 +11,7 @@ from .scorer import (
     PROFICIENCY_WEIGHT,
     _calculate_years_experience,
 )
+from .pipeline import score_one_job
 
 __version__ = "0.1.0"
 __all__ = [
@@ -22,6 +23,7 @@ __all__ = [
     "score_experience",
     "score_preferred",
     "compute_overall_score",
+    "score_one_job",
     "DEFAULT_WEIGHTS",
     "PROFICIENCY_WEIGHT",
     "_calculate_years_experience",
