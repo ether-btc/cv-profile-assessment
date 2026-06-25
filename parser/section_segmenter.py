@@ -86,12 +86,6 @@ def _detect_section(line: str) -> str | None:
         if re.match(pattern, line_lower):
             return section_name
 
-    # Also detect ALL CAPS short lines (common CV heading style)
-    if line.isupper() and 2 <= len(line.split()) <= 4:
-        for section_name, pattern in SECTION_PATTERNS.items():
-            if re.match(pattern, line_lower):
-                return section_name
-
     return None
 
 

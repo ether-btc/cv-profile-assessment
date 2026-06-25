@@ -59,7 +59,6 @@
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["position", "startDate"],
         "properties": {
           "position": {"type": "string"},
           "company": {"type": "string"},

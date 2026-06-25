@@ -97,14 +97,11 @@ def extract_skills(text: str, sections: Dict[str, str] | None = None) -> List[Di
     # Build categorized output
     skills_list = []
     for skill in sorted(found_skills):
-        entry = {
+        skills_list.append({
             "name": skill,
             "category": SKILL_TO_CATEGORY[skill],
             "proficiency": "advanced",  # Phase 1 default; Phase 2: extract from CV context
-        }
-        # Only add esco_id if it's set (Phase 2 integration)
-        # skills_list.append({**entry, "esco_id": None})  # Don't add null field
-        skills_list.append(entry)
+        })
 
     return skills_list
 

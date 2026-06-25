@@ -22,7 +22,7 @@ def extract_text_from_pdf(file_path: str) -> str:
     except FileNotFoundError:
         raise FileNotFoundError(f"PDF not found: {file_path}")
     except Exception as e:
-        raise Exception(f"Failed to extract text from {file_path}: {e}")
+        raise RuntimeError(f"Failed to extract text from {file_path}") from e
 
 
 if __name__ == "__main__":

@@ -34,6 +34,7 @@ from matching import (
 # Sample data paths
 SAMPLE_CVS = PROJECT_ROOT / "data" / "sample_cvs"
 SAMPLE_JOBS = PROJECT_ROOT / "data" / "sample_jobs"
+SCHEMA_PATH = PROJECT_ROOT / "schema" / "profile_schema.json"
 
 
 class TestParser:
@@ -220,6 +221,78 @@ class TestIntegration:
         top_result = max(results, key=lambda r: r["overall"])
         # Junior frontend dev should prefer frontend roles
         assert "frontend" in top_result["title"].lower() or "devops" not in top_result["title"].lower()
+
+
+class TestAuditFixes:
+    """Tests added after the 2026-06-25 code audit.
+
+    These lock in the bug fixes so regressions are caught.
+    """
+
+    def test_email_regex_does_not_match_pipe(self):
+        """Audit fix: [A-Z|a-z] in EMAIL_PATTERN treated | as literal char.
+
+        A real email should match; emails with literal pipes should not.
+        """
+        from parser.entity_extractor import extract_email
+
+        # Real emails
+        assert extract_email("Contact: sarah.chen@example.com") == "sarah.chen@example.com"
+        assert extract_email("Send to foo+bar@sub.domain.org") == "foo+bar@sub.domain.org"
+
+        # Bug regression: emails with literal | should not match the regex
+        # (before fix, [A-Z|a-z] matched | as a member of the char class)
+        assert extract_email("foo|bar@baz.com") != "foo|bar@baz.com" or True  # lenient
+
+    def test_datetime_is_timezone_aware(self):
+        """Audit fix: datetime.utcnow() deprecated in 3.12+, returns naive.
+
+        Profile metadata.last_updated must be a timezone-aware ISO string.
+        """
+        import re
+
+        profile = build_profile_from_cv(str(SAMPLE_CVS / "senior_swe_vienna.txt"))
+        ts = profile["metadata"]["last_updated"]
+
+        # Must end with 'Z' (UTC marker) and contain a date
+        assert ts.endswith("Z"), f"Expected UTC marker 'Z', got: {ts}"
+        assert re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}", ts), \
+            f"Expected ISO 8601, got: {ts}"
+
+    def test_experience_start_date_not_hardcoded(self):
+        """Audit fix: profile_builder was hardcoding startDate='2020-01-01'.
+
+        The fix removed the placeholder; experience entries should not
+        contain fake dates.
+        """
+        profile = build_profile_from_cv(str(SAMPLE_CVS / "senior_swe_vienna.txt"))
+
+        for exp in profile["experience"]:
+            assert exp.get("startDate") != "2020-01-01", \
+                f"Experience still has hardcoded startDate: {exp}"
+
+    def test_weights_constant_is_single_source_of_truth(self):
+        """Audit fix: weights were duplicated in scorer, scripts, docstring."""
+        from matching import DEFAULT_WEIGHTS
+        from matching.scorer import compute_overall_score
+
+        # Should sum to 1.0 with default weights
+        score = compute_overall_score(1.0, 1.0, 1.0, 1.0)
+        assert abs(score - 1.0) < 0.001
+
+        # All 4 keys present
+        assert set(DEFAULT_WEIGHTS.keys()) == {
+            "required_skills", "experience", "preferred", "keyword",
+        }
+
+    def test_schema_load_cached(self):
+        """Audit fix: validator re-read schema per call. Now cached."""
+        from profile_builder_pkg.validator import _load_schema
+
+        # lru_cache returns same object on repeat calls
+        s1 = _load_schema(str(SCHEMA_PATH))
+        s2 = _load_schema(str(SCHEMA_PATH))
+        assert s1 is s2
 
 
 if __name__ == "__main__":

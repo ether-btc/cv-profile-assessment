@@ -11,7 +11,23 @@ Formula:
 Deal-breakers and location/salary hard filters eliminate jobs entirely.
 """
 
-from typing import Dict, Tuple
+from typing import Dict, Optional
+
+
+# Module-level constants — avoid rebuilding per call.
+PROFICIENCY_WEIGHT: Dict[str, float] = {
+    "expert": 1.0,
+    "advanced": 0.85,
+    "intermediate": 0.6,
+    "beginner": 0.3,
+}
+
+DEFAULT_WEIGHTS: Dict[str, float] = {
+    "required_skills": 0.45,
+    "experience": 0.25,
+    "preferred": 0.18,
+    "keyword": 0.12,
+}
 
 
 def score_required_skills(profile: Dict, job: Dict) -> float:
@@ -19,7 +35,7 @@ def score_required_skills(profile: Dict, job: Dict) -> float:
 
     Considers proficiency levels (expert > advanced > intermediate > beginner).
     """
-    required = set(s.lower() for s in job.get("required_skills", []))
+    required = {s.lower() for s in job.get("required_skills", [])}
     if not required:
         return 1.0  # No required skills = perfect match for this dimension
 
@@ -28,31 +44,29 @@ def score_required_skills(profile: Dict, job: Dict) -> float:
         for s in profile.get("skills", [])
     }
 
-    # Weighted match based on proficiency
-    proficiency_weight = {
-        "expert": 1.0,
-        "advanced": 0.85,
-        "intermediate": 0.6,
-        "beginner": 0.3,
-    }
-
     matched_weight = 0.0
     for req_skill in required:
         # Exact match
         if req_skill in profile_skills:
-            matched_weight += proficiency_weight.get(profile_skills[req_skill], 0.5)
+            matched_weight += PROFICIENCY_WEIGHT.get(profile_skills[req_skill], 0.5)
             continue
         # Partial match (skill is substring)
         for prof_skill, prof_level in profile_skills.items():
             if req_skill in prof_skill or prof_skill in req_skill:
-                matched_weight += proficiency_weight.get(prof_level, 0.5) * 0.7
+                matched_weight += PROFICIENCY_WEIGHT.get(prof_level, 0.5) * 0.7
                 break
 
     return min(matched_weight / len(required), 1.0)
 
 
-def score_experience(profile: Dict, job: Dict) -> float:
+def score_experience(profile: Dict, job: Dict, candidate_years: Optional[float] = None) -> float:
     """Score 0.0-1.0: experience alignment.
+
+    Args:
+        profile: Personal profile dict.
+        job: Job dict with min_years_experience.
+        candidate_years: Optional precomputed years (for batch efficiency).
+            If None, computed from profile.
 
     Considers years of experience and seniority level match.
     """
@@ -60,18 +74,22 @@ def score_experience(profile: Dict, job: Dict) -> float:
     if required_years == 0:
         return 1.0
 
-    # Calculate candidate's total years from experience
-    candidate_years = _calculate_years_experience(profile)
+    if candidate_years is None:
+        candidate_years = _calculate_years_experience(profile)
+
+    # When dates are absent (Phase 1 placeholder), score neutrally.
+    # Ponytail: don't fake data; instead, score as "unknown".
+    if candidate_years == 0:
+        return 0.7
 
     if candidate_years >= required_years:
-        # Over-qualified: slight penalty (flight risk)
+        # Over-qualified: flight-risk penalty
         excess = candidate_years - required_years
         penalty = min(excess * 0.05, 0.2)  # up to 20% penalty
         return max(1.0 - penalty, 0.8)
-    else:
-        # Under-qualified: linear penalty
-        gap_ratio = candidate_years / required_years if required_years > 0 else 1.0
-        return max(gap_ratio, 0.0)
+
+    gap_ratio = candidate_years / required_years if required_years > 0 else 1.0
+    return max(gap_ratio, 0.0)
 
 
 def _calculate_years_experience(profile: Dict) -> float:
@@ -95,24 +113,24 @@ def _calculate_years_experience(profile: Dict) -> float:
     return total_years
 
 
-def score_preferred(profile: Dict, job: Dict) -> float:
-    """Score 0.0-1.0: preferred qualifications match."""
-    preferred = set(s.lower() for s in job.get("preferred_skills", []))
+def score_preferred(profile: Dict, job: Dict, profile_skill_names: Optional[set] = None) -> float:
+    """Score 0.0-1.0: preferred qualifications match.
+
+    Args:
+        profile: Personal profile dict.
+        job: Job dict with preferred_skills.
+        profile_skill_names: Optional precomputed lowercased skill names set
+            (for batch efficiency).
+    """
+    preferred = {s.lower() for s in job.get("preferred_skills", [])}
     if not preferred:
         return 0.5  # Neutral when no preferred skills specified
 
-    profile_skills = {s["name"].lower() for s in profile.get("skills", [])}
+    if profile_skill_names is None:
+        profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
 
-    matched = len(preferred & profile_skills)
-    return matched / len(preferred) if preferred else 0.5
-
-
-def score_keywords(profile: Dict, job: Dict) -> float:
-    """Score 0.0-1.0: keyword/description overlap (from TF-IDF similarity).
-
-    This is passed in as a parameter.
-    """
-    return 0.5  # Placeholder; actual TF-IDF computed separately
+    matched = len(preferred & profile_skill_names)
+    return matched / len(preferred)
 
 
 def compute_overall_score(
@@ -120,7 +138,7 @@ def compute_overall_score(
     experience: float,
     preferred: float,
     keyword: float,
-    weights: Dict[str, float] | None = None,
+    weights: Optional[Dict[str, float]] = None,
 ) -> float:
     """Compute weighted overall match score.
 
@@ -134,12 +152,7 @@ def compute_overall_score(
     Returns:
         Final score between 0.0 and 1.0.
     """
-    w = weights or {
-        "required_skills": 0.45,
-        "experience": 0.25,
-        "preferred": 0.18,
-        "keyword": 0.12,
-    }
+    w = weights or DEFAULT_WEIGHTS
 
     score = (
         required_skills * w["required_skills"]
@@ -167,7 +180,7 @@ if __name__ == "__main__":
     req_score = score_required_skills(profile, job)
     exp_score = score_experience(profile, job)
     pref_score = score_preferred(profile, job)
-    kw_score = 0.5  # Placeholder
+    kw_score = 0.5  # Placeholder; see matching.tfidf_matcher
 
     overall = compute_overall_score(req_score, exp_score, pref_score, kw_score)
 

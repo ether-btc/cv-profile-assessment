@@ -22,7 +22,7 @@ except OSError:
 
 
 # Regex patterns for contact info
-EMAIL_PATTERN = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Z|a-z]{2,}\b"
+EMAIL_PATTERN = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
 PHONE_PATTERN = r"(\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}"
 
 # Date patterns (YYYY-MM-DD, MM/YYYY, Mon YYYY, etc.)

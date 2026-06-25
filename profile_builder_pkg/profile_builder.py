@@ -1,7 +1,7 @@
 """Profile builder — assembles parsed CV data into a valid PersonalProfile."""
 
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict
 
@@ -57,7 +57,7 @@ def build_profile_from_cv(cv_path: str) -> Dict:
     skills = extract_skills(text, sections)
 
     # Step 5: Build profile dict
-    now = datetime.utcnow().isoformat() + "Z"
+    now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     profile = {
         "basics": {
             "name": entities.get("name") or "Unknown",
@@ -121,7 +121,6 @@ def _parse_experience(text: str) -> list:
         result.append({
             "position": position,
             "company": company,
-            "startDate": "2020-01-01",  # Placeholder; Phase 2: date extraction
             "summary": "\n".join(lines[1:]) if len(lines) > 1 else "",
             "skills_used": [],
         })

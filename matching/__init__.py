@@ -7,6 +7,9 @@ from .scorer import (
     score_experience,
     score_preferred,
     compute_overall_score,
+    DEFAULT_WEIGHTS,
+    PROFICIENCY_WEIGHT,
+    _calculate_years_experience,
 )
 
 __version__ = "0.1.0"
@@ -19,4 +22,7 @@ __all__ = [
     "score_experience",
     "score_preferred",
     "compute_overall_score",
+    "DEFAULT_WEIGHTS",
+    "PROFICIENCY_WEIGHT",
+    "_calculate_years_experience",
 ]

@@ -1,6 +1,7 @@
 """Profile validator using JSON Schema (draft-07)."""
 
 import json
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -12,6 +13,17 @@ except ImportError:
 
 
 SCHEMA_PATH = Path(__file__).parent.parent / "schema" / "profile_schema.json"
+
+
+@lru_cache(maxsize=1)
+def _load_schema(schema_path_str: str) -> Dict:
+    """Load and cache JSON schema from disk.
+
+    Cached because validation is called per-job in batch matching, and the
+    schema doesn't change at runtime.
+    """
+    with open(schema_path_str) as f:
+        return json.load(f)
 
 
 class ProfileValidationError(Exception):
@@ -32,12 +44,10 @@ def validate_profile(profile: Dict, schema_path: Path | None = None) -> Tuple[bo
         is_valid=False, error_message="..." on failure.
     """
     if jsonschema is None:
-        # Fallback: minimal validation
         return _minimal_validation(profile)
 
     schema_file = schema_path or SCHEMA_PATH
-    with open(schema_file) as f:
-        schema = json.load(f)
+    schema = _load_schema(str(schema_file))
 
     try:
         jsonschema.validate(instance=profile, schema=schema)

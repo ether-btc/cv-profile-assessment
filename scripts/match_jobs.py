@@ -19,11 +19,16 @@ from matching import (
     score_experience,
     score_preferred,
     compute_overall_score,
+    DEFAULT_WEIGHTS,
+    _calculate_years_experience,
 )
 
 
 def match_profile_to_jobs(profile: dict, jobs: list) -> list:
     """Score profile against all jobs and return ranked results.
+
+    Precomputes profile-only values once per batch (candidate_years,
+    profile_skill_names) instead of recomputing per job.
 
     Args:
         profile: Personal profile dict.
@@ -32,6 +37,10 @@ def match_profile_to_jobs(profile: dict, jobs: list) -> list:
     Returns:
         List of match results, sorted by score descending.
     """
+    # Profile-only values: compute once, reuse per job
+    candidate_years = _calculate_years_experience(profile)
+    profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
+
     results = []
 
     for job in jobs:
@@ -47,10 +56,10 @@ def match_profile_to_jobs(profile: dict, jobs: list) -> list:
             })
             continue
 
-        # Stage 2: Component scores
+        # Stage 2: Component scores (profile-only values passed in)
         req_score = score_required_skills(profile, job)
-        exp_score = score_experience(profile, job)
-        pref_score = score_preferred(profile, job)
+        exp_score = score_experience(profile, job, candidate_years=candidate_years)
+        pref_score = score_preferred(profile, job, profile_skill_names=profile_skill_names)
         kw_score = compute_tfidf_similarity(profile, job)
 
         # Stage 3: Weighted overall
@@ -69,12 +78,7 @@ def match_profile_to_jobs(profile: dict, jobs: list) -> list:
                 "preferred": round(pref_score, 4),
                 "keyword_tfidf": round(kw_score, 4),
             },
-            "weights": {
-                "required_skills": 0.45,
-                "experience": 0.25,
-                "preferred": 0.18,
-                "keyword": 0.12,
-            },
+            "weights": DEFAULT_WEIGHTS,
         })
 
     # Sort by score descending
