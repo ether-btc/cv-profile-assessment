@@ -1,0 +1,173 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://example.com/profile-schema-v1.json",
+  "title": "PersonalProfile",
+  "description": "Structured personal profile for job matching",
+  "type": "object",
+  "required": ["basics", "skills", "experience"],
+  "properties": {
+    "basics": {
+      "type": "object",
+      "required": ["name", "email"],
+      "properties": {
+        "name": {"type": "string", "minLength": 1},
+        "email": {"type": "string", "format": "email"},
+        "phone": {"type": "string"},
+        "location": {
+          "type": "object",
+          "properties": {
+            "city": {"type": "string"},
+            "country": {"type": "string"},
+            "region": {"type": "string"}
+          }
+        },
+        "summary": {"type": "string"},
+        "work_authorization": {
+          "type": "array",
+          "items": {"type": "string"}
+        },
+        "languages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "language": {"type": "string"},
+              "fluency": {"enum": ["native", "fluent", "intermediate", "basic"]}
+            }
+          }
+        }
+      }
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "category": {
+            "enum": ["programming_languages", "frameworks", "tools", "platforms", "databases", "methodologies", "soft_skills", "domains"]
+          },
+          "name": {"type": "string"},
+          "esco_id": {"type": "string"},
+          "proficiency": {"enum": ["beginner", "intermediate", "advanced", "expert"]},
+          "years_of_experience": {"type": "number", "minimum": 0},
+          "last_used": {"type": "string", "format": "date"}
+        }
+      }
+    },
+    "experience": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["position", "startDate"],
+        "properties": {
+          "position": {"type": "string"},
+          "company": {"type": "string"},
+          "location": {"type": "string"},
+          "startDate": {"type": "string", "format": "date"},
+          "endDate": {"type": "string", "format": "date"},
+          "current": {"type": "boolean"},
+          "summary": {"type": "string"},
+          "achievements": {"type": "array", "items": {"type": "string"}},
+          "skills_used": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "education": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "institution": {"type": "string"},
+          "degree": {"type": "string"},
+          "field": {"type": "string"},
+          "startDate": {"type": "string", "format": "date"},
+          "endDate": {"type": "string", "format": "date"},
+          "grade": {"type": "string"}
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "description": {"type": "string"},
+          "url": {"type": "string"},
+          "startDate": {"type": "string", "format": "date"},
+          "endDate": {"type": "string", "format": "date"},
+          "skills_demonstrated": {"type": "array", "items": {"type": "string"}}
+        }
+      }
+    },
+    "certifications": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {"type": "string"},
+          "issuer": {"type": "string"},
+          "date": {"type": "string", "format": "date"},
+          "credential_id": {"type": "string"},
+          "url": {"type": "string"}
+        }
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "properties": {
+        "location_preference": {
+          "type": "object",
+          "properties": {
+            "preferred_cities": {"type": "array", "items": {"type": "string"}},
+            "remote_only": {"type": "boolean"},
+            "hybrid_ok": {"type": "boolean"},
+            "relocation_willing": {"type": "boolean"},
+            "max_commute_km": {"type": "number"}
+          }
+        },
+        "salary_expectations": {
+          "type": "object",
+          "properties": {
+            "minimum": {"type": "number"},
+            "target": {"type": "number"},
+            "currency": {"type": "string"},
+            "period": {"enum": ["yearly", "monthly", "hourly"]}
+          }
+        },
+        "role_preferences": {
+          "type": "object",
+          "properties": {
+            "seniority_levels": {
+              "type": "array",
+              "items": {"enum": ["junior", "mid", "senior", "staff", "principal", "lead"]}
+            },
+            "company_sizes": {
+              "type": "array",
+              "items": {"enum": ["startup", "small", "medium", "large", "enterprise"]}
+            },
+            "industries": {"type": "array", "items": {"type": "string"}},
+            "tech_stack_preferences": {"type": "array", "items": {"type": "string"}}
+          }
+        },
+        "deal_breakers": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "version": {"type": "string"},
+        "last_updated": {"type": "string", "format": "date-time"},
+        "source": {"type": "string"},
+        "confidence_scores": {
+          "type": "object",
+          "properties": {
+            "skills_extraction": {"type": "number", "minimum": 0, "maximum": 1},
+            "esco_mapping": {"type": "number", "minimum": 0, "maximum": 1}
+          }
+        }
+      }
+    }
+  }
+}

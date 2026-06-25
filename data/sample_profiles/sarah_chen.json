@@ -1,0 +1,177 @@
+{
+  "basics": {
+    "name": "Sarah Chen\nsarah.chen@example.com",
+    "email": "sarah.chen@example.com",
+    "phone": "+43 660 1234567",
+    "location": {
+      "city": "Vienna",
+      "country": "Austria"
+    },
+    "summary": "Senior Software Engineer with 8 years of experience in Python, distributed systems, and machine learning. Passionate about building scalable backend services and mentoring junior developers.",
+    "languages": []
+  },
+  "skills": [
+    {
+      "name": "agile",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "aws",
+      "category": "platforms",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "ci/cd",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "data science",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "django",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "docker",
+      "category": "tools",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "fastapi",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "gcp",
+      "category": "platforms",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "git",
+      "category": "tools",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "java",
+      "category": "programming_languages",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "javascript",
+      "category": "programming_languages",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "jenkins",
+      "category": "tools",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "kubernetes",
+      "category": "tools",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "linux",
+      "category": "platforms",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "machine learning",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "microservices",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "mongodb",
+      "category": "databases",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "nlp",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "postgresql",
+      "category": "databases",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "python",
+      "category": "programming_languages",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "pytorch",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "react",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "redis",
+      "category": "databases",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "scikit-learn",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "scrum",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "tensorflow",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "typescript",
+      "category": "programming_languages",
+      "proficiency": "advanced"
+    }
+  ],
+  "experience": [
+    {
+      "position": "Senior Software Engineer",
+      "company": "TechCorp GmbH",
+      "startDate": "2020-01-01",
+      "summary": "2020-03 - Present | Vienna, Austria\n- Led migration of monolithic Python application to microservices architecture using Docker and Kubernetes\n- Built ML pipeline using TensorFlow and PyTorch for real-time fraud detection (reduced false positives by 40%)\n- Mentored 3 junior engineers, conducted code reviews, and established engineering best practices\nSoftware Engineer @ StartupX AG\n2017-06 - 2020-02 | Berlin, Germany\n- Developed REST APIs using Django and FastAPI serving 10M+ requests/day\n- Implemented CI/CD pipelines with Jenkins and GitLab CI\n- Optimized PostgreSQL queries, reducing average response time by 60%\nJunior Developer @ WebSolutions KG\n2015-09 - 2017-05 | Linz, Austria\n- Built responsive web applications using React and TypeScript\n- Wrote automated tests using pytest and Jest",
+      "skills_used": []
+    }
+  ],
+  "education": [],
+  "projects": [],
+  "certifications": [],
+  "preferences": {
+    "location_preference": {},
+    "salary_expectations": {},
+    "role_preferences": {},
+    "deal_breakers": []
+  },
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2026-06-25T16:34:18.895904Z",
+    "source": "data/sample_cvs/senior_swe_vienna.txt",
+    "confidence_scores": {
+      "skills_extraction": 0.7,
+      "esco_mapping": 0.0
+    }
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "title": "Frontend Developer (React/Next.js)",
+  "company": "WebStudio AG",
+  "location": "Munich, Germany",
+  "remote": true,
+  "description": "Join our frontend team to build modern, performant web applications. You'll work with React, Next.js, and TypeScript to deliver exceptional user experiences.",
+  "requirements": [
+    "3+ years of React development experience",
+    "Strong TypeScript skills",
+    "Experience with Next.js or similar SSR frameworks",
+    "Familiarity with modern CSS frameworks (Tailwind, styled-components)",
+    "Understanding of REST and GraphQL APIs"
+  ],
+  "required_skills": ["javascript", "typescript", "react", "next.js", "css"],
+  "preferred_skills": ["graphql", "tailwind", "jest", "cypress"],
+  "min_years_experience": 3,
+  "salary_range": {"min": 55000, "max": 75000, "currency": "EUR", "period": "yearly"},
+  "seniority_level": "mid"
+}

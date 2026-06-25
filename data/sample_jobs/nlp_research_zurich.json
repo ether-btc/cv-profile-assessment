@@ -1,0 +1,19 @@
+{
+  "title": "NLP Research Engineer",
+  "company": "AILab Research",
+  "location": "Zurich, Switzerland",
+  "remote": false,
+  "description": "Research-focused position working on cutting-edge NLP and large language models. Publish papers, contribute to open-source, and push the state-of-the-art.",
+  "requirements": [
+    "PhD or equivalent experience in NLP, ML, or related field",
+    "Strong publication record in top-tier conferences (NeurIPS, ICML, ACL)",
+    "Expert-level PyTorch or TensorFlow skills",
+    "Experience training large language models from scratch",
+    "Proficiency with transformer architectures (BERT, GPT, T5)"
+  ],
+  "required_skills": ["python", "pytorch", "tensorflow", "nlp", "deep learning", "machine learning"],
+  "preferred_skills": ["bert", "transformers", "cuda", "distributed training"],
+  "min_years_experience": 4,
+  "salary_range": {"min": 120000, "max": 180000, "currency": "CHF", "period": "yearly"},
+  "seniority_level": "senior"
+}

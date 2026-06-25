@@ -1,0 +1,31 @@
+Marcus Weber
+marcus.weber@example.com | +49 151 9876543 | Munich, Germany
+
+PROFILE
+Full-stack developer with 3 years of experience building web applications. Focused on JavaScript ecosystem and cloud-native development.
+
+WORK EXPERIENCE
+Full-Stack Developer @ CloudNine GmbH
+2022-04 - Present | Munich, Germany
+- Developed customer-facing web apps using React, Next.js, and TypeScript
+- Built serverless APIs on AWS Lambda with Node.js
+- Implemented automated testing with Jest and Cypress
+
+Junior Developer @ DevShop AG
+2021-01 - 2022-03 | Munich, Germany
+- Created WordPress and Shopify themes
+- Basic PHP and MySQL work
+
+EDUCATION
+LMU Munich
+2017-09 - 2020-08
+Bachelor of Science in Informatics
+
+SKILLS
+JavaScript, TypeScript, React, Next.js, Node.js, Express, HTML, CSS, Tailwind, AWS, Lambda, Serverless, Git, GitHub Actions, Jest, Cypress, MySQL, PostgreSQL, REST, GraphQL
+
+LANGUAGES
+German (Native), English (Fluent)
+
+INTERESTS
+Open source contribution, hiking, photography

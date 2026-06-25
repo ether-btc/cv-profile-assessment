@@ -1,0 +1,19 @@
+{
+  "title": "Senior Backend Engineer (Python)",
+  "company": "InnovateTech GmbH",
+  "location": "Vienna, Austria",
+  "remote": false,
+  "description": "We are looking for a Senior Backend Engineer to join our growing engineering team in Vienna. You will work on our core platform serving millions of users, building scalable microservices and ML-powered features.",
+  "requirements": [
+    "5+ years of professional Python development experience",
+    "Strong knowledge of distributed systems and microservices architecture",
+    "Experience with Docker and Kubernetes in production",
+    "Familiarity with PostgreSQL or similar relational databases",
+    "Experience with cloud platforms (AWS, GCP, or Azure)"
+  ],
+  "required_skills": ["python", "docker", "kubernetes", "postgresql", "microservices", "aws"],
+  "preferred_skills": ["tensorflow", "pytorch", "machine learning", "fastapi", "terraform"],
+  "min_years_experience": 5,
+  "salary_range": {"min": 70000, "max": 95000, "currency": "EUR", "period": "yearly"},
+  "seniority_level": "senior"
+}

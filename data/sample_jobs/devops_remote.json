@@ -1,0 +1,19 @@
+{
+  "title": "DevOps Engineer",
+  "company": "CloudOps Inc",
+  "location": "Remote (EU)",
+  "remote": true,
+  "description": "Build and maintain our cloud infrastructure, CI/CD pipelines, and monitoring systems. Work with cutting-edge Kubernetes and infrastructure-as-code tools.",
+  "requirements": [
+    "4+ years of DevOps or SRE experience",
+    "Expert knowledge of Kubernetes and Docker",
+    "Strong experience with AWS or GCP",
+    "Proficiency with Terraform or similar IaC tools",
+    "Experience with CI/CD pipelines (Jenkins, GitLab CI, GitHub Actions)"
+  ],
+  "required_skills": ["kubernetes", "docker", "aws", "terraform", "jenkins", "ci/cd"],
+  "preferred_skills": ["python", "ansible", "prometheus", "grafana"],
+  "min_years_experience": 4,
+  "salary_range": {"min": 65000, "max": 90000, "currency": "EUR", "period": "yearly"},
+  "seniority_level": "senior"
+}

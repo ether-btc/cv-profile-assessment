@@ -1,0 +1,132 @@
+#!/usr/bin/env python3
+"""CLI: Match a profile against one or more jobs and output ranked results.
+
+Usage:
+    python match_jobs.py <profile.json> <jobs_dir> [-o output.json]
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent))
+
+from matching import (
+    compute_tfidf_similarity,
+    check_deal_breakers,
+    score_required_skills,
+    score_experience,
+    score_preferred,
+    compute_overall_score,
+)
+
+
+def match_profile_to_jobs(profile: dict, jobs: list) -> list:
+    """Score profile against all jobs and return ranked results.
+
+    Args:
+        profile: Personal profile dict.
+        jobs: List of job dicts.
+
+    Returns:
+        List of match results, sorted by score descending.
+    """
+    results = []
+
+    for job in jobs:
+        # Stage 1: Deal-breakers (hard filter)
+        passes, db_reason = check_deal_breakers(profile, job)
+        if not passes:
+            results.append({
+                "job_title": job.get("title", "Unknown"),
+                "company": job.get("company", "Unknown"),
+                "overall_score": 0.0,
+                "blocked": True,
+                "block_reason": db_reason,
+            })
+            continue
+
+        # Stage 2: Component scores
+        req_score = score_required_skills(profile, job)
+        exp_score = score_experience(profile, job)
+        pref_score = score_preferred(profile, job)
+        kw_score = compute_tfidf_similarity(profile, job)
+
+        # Stage 3: Weighted overall
+        overall = compute_overall_score(req_score, exp_score, pref_score, kw_score)
+
+        results.append({
+            "job_title": job.get("title", "Unknown"),
+            "company": job.get("company", "Unknown"),
+            "location": job.get("location", ""),
+            "remote": job.get("remote", False),
+            "overall_score": overall,
+            "blocked": False,
+            "component_scores": {
+                "required_skills": round(req_score, 4),
+                "experience": round(exp_score, 4),
+                "preferred": round(pref_score, 4),
+                "keyword_tfidf": round(kw_score, 4),
+            },
+            "weights": {
+                "required_skills": 0.45,
+                "experience": 0.25,
+                "preferred": 0.18,
+                "keyword": 0.12,
+            },
+        })
+
+    # Sort by score descending
+    results.sort(key=lambda r: r["overall_score"], reverse=True)
+    return results
+
+
+def main():
+    parser = argparse.ArgumentParser(description="Match profile to jobs")
+    parser.add_argument("profile", help="Path to profile JSON")
+    parser.add_argument("jobs_dir", help="Path to directory containing job JSON files")
+    parser.add_argument("-o", "--output", help="Output file (default: stdout)")
+    args = parser.parse_args()
+
+    profile_path = Path(args.profile)
+    jobs_dir = Path(args.jobs_dir)
+
+    if not profile_path.exists():
+        print(f"Error: Profile not found: {profile_path}", file=sys.stderr)
+        sys.exit(1)
+    if not jobs_dir.is_dir():
+        print(f"Error: Jobs directory not found: {jobs_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    profile = json.loads(profile_path.read_text(encoding="utf-8"))
+
+    # Load all jobs
+    job_files = sorted(jobs_dir.glob("*.json"))
+    jobs = []
+    for jf in job_files:
+        try:
+            job = json.loads(jf.read_text(encoding="utf-8"))
+            jobs.append(job)
+        except json.JSONDecodeError as e:
+            print(f"Warning: Skipping invalid JSON in {jf}: {e}", file=sys.stderr)
+
+    if not jobs:
+        print(f"No jobs found in {jobs_dir}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Matching profile '{profile['basics']['name']}' against {len(jobs)} jobs...", file=sys.stderr)
+
+    results = match_profile_to_jobs(profile, jobs)
+
+    output = json.dumps(results, indent=2, ensure_ascii=False)
+
+    if args.output:
+        Path(args.output).write_text(output, encoding="utf-8")
+        print(f"Results written to {args.output}", file=sys.stderr)
+    else:
+        print(output)
+
+
+if __name__ == "__main__":
+    main()

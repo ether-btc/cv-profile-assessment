@@ -1,0 +1,33 @@
+Elena Rossi
+elena.rossi@example.com | +39 333 7654321 | Milan, Italy
+
+OBJECTIVE
+Data Scientist with 5 years of experience in NLP and computer vision. Looking to apply ML expertise to climate tech challenges.
+
+EXPERIENCE
+Data Scientist @ GreenAI Srl
+2021-09 - Present | Milan, Italy
+- Built NLP models for climate report analysis using BERT and spaCy
+- Developed computer vision pipelines for satellite imagery using PyTorch
+- Published 2 papers on ML for environmental monitoring
+
+Junior Data Scientist @ DataCorp SpA
+2019-06 - 2021-08 | Rome, Italy
+- ETL pipelines with Python and Apache Spark
+- Predictive modeling with scikit-learn and XGBoost
+- SQL data analysis on PostgreSQL
+
+EDUCATION
+Politecnico di Milano
+2015-09 - 2019-06
+Master of Science in Computer Engineering
+
+SKILLS
+Python, R, SQL, TensorFlow, PyTorch, BERT, spaCy, scikit-learn, XGBoost, Apache Spark, Pandas, NumPy, Jupyter, Git, Docker, AWS, GCP, NLP, Computer Vision, Machine Learning, Deep Learning, Data Science, ETL, Statistics
+
+LANGUAGES
+Italian (Native), English (Fluent), Spanish (Intermediate)
+
+PUBLICATIONS
+"Transformer Models for Climate Report Analysis" - NeurIPS 2023
+"Satellite Image Segmentation for Deforestation Detection" - ICML 2022

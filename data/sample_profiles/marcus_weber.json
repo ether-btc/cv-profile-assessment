@@ -1,0 +1,102 @@
+{
+  "basics": {
+    "name": "Marcus Weber",
+    "email": "marcus.weber@example.com",
+    "phone": "+49 151 9876543",
+    "location": {
+      "city": "Munich",
+      "country": "Germany"
+    },
+    "summary": "Full-stack developer with 3 years of experience building web applications. Focused on JavaScript ecosystem and cloud-native development.",
+    "languages": []
+  },
+  "skills": [
+    {
+      "name": "aws",
+      "category": "platforms",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "express",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "git",
+      "category": "tools",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "graphql",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "javascript",
+      "category": "programming_languages",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "mysql",
+      "category": "databases",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "next.js",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "postgresql",
+      "category": "databases",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "react",
+      "category": "frameworks",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "rest",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "serverless",
+      "category": "methodologies",
+      "proficiency": "advanced"
+    },
+    {
+      "name": "typescript",
+      "category": "programming_languages",
+      "proficiency": "advanced"
+    }
+  ],
+  "experience": [
+    {
+      "position": "Full-Stack Developer",
+      "company": "CloudNine GmbH",
+      "startDate": "2020-01-01",
+      "summary": "2022-04 - Present | Munich, Germany\n- Developed customer-facing web apps using React, Next.js, and TypeScript\n- Built serverless APIs on AWS Lambda with Node.js\n- Implemented automated testing with Jest and Cypress\nJunior Developer @ DevShop AG\n2021-01 - 2022-03 | Munich, Germany\n- Created WordPress and Shopify themes\n- Basic PHP and MySQL work",
+      "skills_used": []
+    }
+  ],
+  "education": [],
+  "projects": [],
+  "certifications": [],
+  "preferences": {
+    "location_preference": {},
+    "salary_expectations": {},
+    "role_preferences": {},
+    "deal_breakers": []
+  },
+  "metadata": {
+    "version": "1.0",
+    "last_updated": "2026-06-25T16:36:11.637788Z",
+    "source": "data/sample_cvs/junior_fs_developer.txt",
+    "confidence_scores": {
+      "skills_extraction": 0.7,
+      "esco_mapping": 0.0
+    }
+  }
+}
