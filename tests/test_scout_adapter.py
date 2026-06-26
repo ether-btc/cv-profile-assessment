@@ -472,5 +472,49 @@ class TestScoreOneJob(unittest.TestCase):
         self.assertFalse(result["blocked"])
 
 
+# ---------------------------------------------------------------------------
+# Deal-breaker word-boundary tests
+# ---------------------------------------------------------------------------
+
+class TestDealBreakerWordBoundary(unittest.TestCase):
+    """Regression tests for substring false-positive fix in deal_breakers.py."""
+
+    def _check(self, deal_breaker, job_text):
+        from matching.deal_breakers import check_deal_breakers
+        profile = {"preferences": {"deal_breakers": [deal_breaker]}}
+        job = {"title": "", "description": job_text, "location": "", "requirements": []}
+        passes, reason = check_deal_breakers(profile, job)
+        return passes
+
+    def test_java_does_not_block_javascript(self):
+        """'java' deal-breaker must not match 'javascript'."""
+        self.assertTrue(self._check("java", "JavaScript and React"))
+
+    def test_go_does_not_block_google(self):
+        """'go' deal-breaker must not match 'Google'."""
+        self.assertTrue(self._check("go", "Google Cloud Platform"))
+
+    def test_sql_does_not_block_postgresql(self):
+        """'sql' deal-breaker must not match 'PostgreSQL'."""
+        self.assertTrue(self._check("sql", "PostgreSQL administration"))
+
+    def test_r_does_not_block_react(self):
+        """'r' deal-breaker must not match 'React'."""
+        self.assertTrue(self._check("r", "React frontend"))
+
+    def test_java_blocks_java_standalone(self):
+        """'java' deal-breaker SHOULD match standalone 'Java'."""
+        self.assertFalse(self._check("java", "Java and Spring Boot"))
+
+    def test_multiword_dealbreaker_matches(self):
+        """Multi-word deal-breakers should work."""
+        self.assertFalse(self._check("on-call rotation", "includes on-call rotation"))
+
+    def test_c_plus_plus_not_falsely_blocked(self):
+        """'c++' deal-breaker should match 'C++ developer' but not 'C developer'."""
+        self.assertFalse(self._check("c++", "C++ developer needed"))
+        self.assertTrue(self._check("c++", "C developer needed"))
+
+
 if __name__ == "__main__":
     unittest.main()
