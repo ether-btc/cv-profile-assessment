@@ -89,16 +89,3 @@ def _detect_section(line: str) -> str | None:
     return None
 
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python section_segmenter.py <text_file>")
-        sys.exit(1)
-    with open(sys.argv[1]) as f:
-        text = f.read()
-    sections = segment_sections(text)
-    for name, content in sections.items():
-        print(f"\n{'=' * 60}")
-        print(f"SECTION: {name.upper()} ({len(content)} chars)")
-        print('=' * 60)
-        print(content[:300] + ("..." if len(content) > 300 else ""))

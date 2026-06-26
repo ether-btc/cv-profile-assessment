@@ -25,9 +25,6 @@ except OSError:
 EMAIL_PATTERN = r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"
 PHONE_PATTERN = r"(\+?\d{1,3}[\s.-]?)?\(?\d{2,4}\)?[\s.-]?\d{3,4}[\s.-]?\d{3,4}"
 
-# Date patterns (YYYY-MM-DD, MM/YYYY, Mon YYYY, etc.)
-DATE_PATTERN = r"(\d{4}[-/]\d{1,2}[-/]\d{1,2}|\d{1,2}[-/]\d{4}|(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{4})"
-
 
 def extract_email(text: str) -> Optional[str]:
     """Extract first email address found in text."""
@@ -109,17 +106,3 @@ def extract_entities(sections: Dict[str, str]) -> Dict:
     }
 
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python entity_extractor.py <text_file>")
-        sys.exit(1)
-    from .section_segmenter import segment_sections
-
-    with open(sys.argv[1]) as f:
-        text = f.read()
-    sections = segment_sections(text)
-    entities = extract_entities(sections)
-
-    import json
-    print(json.dumps(entities, indent=2))

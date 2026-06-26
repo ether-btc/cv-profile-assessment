@@ -6,7 +6,7 @@ mentions "javascript", and "go" should NOT block "Google".
 """
 
 import re
-from typing import Dict, List, Tuple
+from typing import Dict, Tuple
 
 
 def check_deal_breakers(profile: Dict, job: Dict) -> Tuple[bool, str]:
@@ -46,23 +46,3 @@ def check_deal_breakers(profile: Dict, job: Dict) -> Tuple[bool, str]:
             return False, f"Deal-breaker matched: '{db}'"
 
     return True, ""
-
-
-if __name__ == "__main__":
-    import json
-    import sys
-
-    if len(sys.argv) != 3:
-        print("Usage: python deal_breakers.py <profile.json> <job.json>")
-        sys.exit(1)
-
-    with open(sys.argv[1]) as f:
-        profile = json.load(f)
-    with open(sys.argv[2]) as f:
-        job = json.load(f)
-
-    passes, reason = check_deal_breakers(profile, job)
-    if passes:
-        print("✓ Job passes all deal-breakers")
-    else:
-        print(f"✗ Job blocked: {reason}")

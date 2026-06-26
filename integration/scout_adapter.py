@@ -104,13 +104,8 @@ def extract_min_years(description: str | None) -> int:
     match = _YEARS_PATTERN.search(description)
     if not match:
         return 0
-    raw = match.group("min") or match.group("min2")
-    if raw is None:
-        return 0
-    try:
-        return int(raw)
-    except ValueError:
-        return 0
+    # Regex alternation guarantees one of the groups matches; int() on \d+ can't fail.
+    return int(match.group("min") or match.group("min2"))
 
 
 def parse_skills_json(skills_json: str | None) -> list[str]:
@@ -265,16 +260,3 @@ def load_jobs_from_scout_db(db_path: str | Path, status: str = "active") -> list
 # CLI smoke test
 # -----------------------------------------------------------------------------
 
-if __name__ == "__main__":
-    import sys
-
-    if len(sys.argv) != 2:
-        print(f"Usage: {sys.argv[0]} <scout_db.sqlite>", file=sys.stderr)
-        sys.exit(1)
-
-    jobs = load_jobs_from_scout_db(sys.argv[1])
-    print(f"Loaded {len(jobs)} jobs from {sys.argv[1]}")
-    if jobs:
-        sample = jobs[0]
-        print("\nSample adapted job:")
-        print(json.dumps(sample, indent=2, default=str))

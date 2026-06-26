@@ -96,18 +96,3 @@ def compute_tfidf_similarity(profile: Dict, job: Dict) -> float:
         return 0.0
 
 
-if __name__ == "__main__":
-    import json
-    import sys
-
-    if len(sys.argv) != 3:
-        print("Usage: python tfidf_matcher.py <profile.json> <job.json>")
-        sys.exit(1)
-
-    with open(sys.argv[1]) as f:
-        profile = json.load(f)
-    with open(sys.argv[2]) as f:
-        job = json.load(f)
-
-    score = compute_tfidf_similarity(profile, job)
-    print(f"TF-IDF Similarity: {score:.4f}")

@@ -79,18 +79,3 @@ def _minimal_validation(profile: Dict) -> Tuple[bool, str]:
     return True, ""
 
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python validator.py <profile_json>")
-        sys.exit(1)
-
-    with open(sys.argv[1]) as f:
-        profile = json.load(f)
-
-    is_valid, error = validate_profile(profile)
-    if is_valid:
-        print("✓ Profile is valid")
-    else:
-        print(f"✗ Profile is invalid: {error}")
-        sys.exit(1)

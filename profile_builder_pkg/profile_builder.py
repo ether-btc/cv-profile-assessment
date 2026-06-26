@@ -128,11 +128,3 @@ def _parse_experience(text: str) -> list:
     return result
 
 
-if __name__ == "__main__":
-    import json
-    if len(sys.argv) != 2:
-        print("Usage: python profile_builder.py <cv_path>")
-        sys.exit(1)
-
-    profile = build_profile_from_cv(sys.argv[1])
-    print(json.dumps(profile, indent=2))

@@ -11,6 +11,7 @@ Formula:
 Deal-breakers and location/salary hard filters eliminate jobs entirely.
 """
 
+import re
 from typing import Dict, Optional
 
 
@@ -50,9 +51,11 @@ def score_required_skills(profile: Dict, job: Dict) -> float:
         if req_skill in profile_skills:
             matched_weight += PROFICIENCY_WEIGHT.get(profile_skills[req_skill], 0.5)
             continue
-        # Partial match (skill is substring)
+        # Partial match (word-boundary substring match)
+        # Use (?<![a-z0-9])/(?![a-z0-9]) to avoid 'r' matching 'react', 'go' matching 'google'
         for prof_skill, prof_level in profile_skills.items():
-            if req_skill in prof_skill or prof_skill in req_skill:
+            pattern = r"(?<![a-z0-9])" + re.escape(req_skill) + r"(?![a-z0-9])"
+            if re.search(pattern, prof_skill.lower()):
                 matched_weight += PROFICIENCY_WEIGHT.get(prof_level, 0.5) * 0.7
                 break
 
@@ -164,28 +167,3 @@ def compute_overall_score(
     return round(min(max(score, 0.0), 1.0), 4)
 
 
-if __name__ == "__main__":
-    import json
-    import sys
-
-    if len(sys.argv) != 3:
-        print("Usage: python scorer.py <profile.json> <job.json>")
-        sys.exit(1)
-
-    with open(sys.argv[1]) as f:
-        profile = json.load(f)
-    with open(sys.argv[2]) as f:
-        job = json.load(f)
-
-    req_score = score_required_skills(profile, job)
-    exp_score = score_experience(profile, job)
-    pref_score = score_preferred(profile, job)
-    kw_score = 0.5  # Placeholder; see matching.tfidf_matcher
-
-    overall = compute_overall_score(req_score, exp_score, pref_score, kw_score)
-
-    print(f"Required Skills: {req_score:.4f} (weight 45%)")
-    print(f"Experience:      {exp_score:.4f} (weight 25%)")
-    print(f"Preferred:       {pref_score:.4f} (weight 18%)")
-    print(f"Keyword:         {kw_score:.4f} (weight 12%)")
-    print(f"\nOverall Score:   {overall:.4f}")

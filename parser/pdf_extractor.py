@@ -25,11 +25,3 @@ def extract_text_from_pdf(file_path: str) -> str:
         raise RuntimeError(f"Failed to extract text from {file_path}") from e
 
 
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python pdf_extractor.py <pdf_path>")
-        sys.exit(1)
-    text = extract_text_from_pdf(sys.argv[1])
-    print(f"Extracted {len(text)} characters")
-    print(text[:500])

@@ -106,30 +106,3 @@ def extract_skills(text: str, sections: Dict[str, str] | None = None) -> List[Di
     return skills_list
 
 
-def load_esco_skills(esco_file: Path) -> Dict[str, str]:
-    """Load ESCO skills mapping (Phase 2).
-
-    Args:
-        esco_file: Path to ESCO CSV/JSON file.
-
-    Returns:
-        Dict mapping skill name to ESCO URI.
-    """
-    # TODO: Phase 2 implementation
-    raise NotImplementedError("ESCO integration is Phase 2")
-
-
-if __name__ == "__main__":
-    import sys
-    if len(sys.argv) != 2:
-        print("Usage: python skill_extractor.py <text_file>")
-        sys.exit(1)
-    from .section_segmenter import segment_sections
-
-    with open(sys.argv[1]) as f:
-        text = f.read()
-    sections = segment_sections(text)
-    skills = extract_skills(text, sections)
-
-    print(f"\nExtracted {len(skills)} skills:")
-    print(json.dumps(skills, indent=2))
