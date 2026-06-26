@@ -34,7 +34,7 @@ def match_profile_to_jobs(profile: dict, jobs: list) -> list:
     """
     # Profile-only values: compute once, reuse per job
     candidate_years = _calculate_years_experience(profile)
-    profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
+    profile_skill_names = {s["name"].lower() for s in profile.get("skills", []) if "name" in s}
 
     results = [
         score_one_job(

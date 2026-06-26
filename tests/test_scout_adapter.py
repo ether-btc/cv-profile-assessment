@@ -114,6 +114,13 @@ class TestExtractMinYears(unittest.TestCase):
     def test_none(self):
         self.assertEqual(extract_min_years(None), 0)
 
+    def test_no_false_positive_on_admin(self):
+        """'admin 5 years' should NOT match (word-boundary bug)."""
+        self.assertEqual(extract_min_years("admin 5 years"), 0)
+
+    def test_no_false_positive_on_determine(self):
+        self.assertEqual(extract_min_years("determine 3 years"), 0)
+
 
 class TestParseSkillsJson(unittest.TestCase):
     def test_valid_list(self):
@@ -328,6 +335,17 @@ class TestEndToEnd(unittest.TestCase):
         with self.assertRaises(FileNotFoundError):
             load_jobs_from_scout_db(Path(self.tmpdir) / "nonexistent.sqlite")
 
+    def test_missing_table_raises_with_clear_message(self):
+        """Loading from a valid SQLite DB without austria_jobs table gives a helpful error."""
+        bad_db = Path(self.tmpdir) / "bad.sqlite"
+        conn = sqlite3.connect(str(bad_db))
+        conn.execute("CREATE TABLE other (id INTEGER)")
+        conn.close()
+        with self.assertRaises(sqlite3.OperationalError) as cm:
+            load_jobs_from_scout_db(bad_db)
+        self.assertIn("austria_jobs", str(cm.exception))
+        self.assertIn("not found", str(cm.exception).lower())
+
     @unittest.skipUnless(
         (PROFILES_DIR / "senior_swe_vienna.json").exists(),
         "Senior SWE profile not built yet",
@@ -441,6 +459,17 @@ class TestScoreOneJob(unittest.TestCase):
         result = score_one_job(self._PROFILE, job)
         self.assertFalse(result["blocked"])
         self.assertEqual(result["component_scores"]["required_skills"], 1.0)
+
+    def test_malformed_skills_does_not_crash(self):
+        """Profile with skills missing 'name' key should not raise KeyError."""
+        profile = {
+            "basics": {"name": "Test"},
+            "skills": [{"proficiency": "expert"}],  # missing "name"
+            "experience": [],
+        }
+        job = {"title": "Dev", "company": "Co", "required_skills": ["python"]}
+        result = score_one_job(profile, job)
+        self.assertFalse(result["blocked"])
 
 
 if __name__ == "__main__":

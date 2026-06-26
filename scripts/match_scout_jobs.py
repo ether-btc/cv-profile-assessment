@@ -39,7 +39,7 @@ def match_scout_jobs(profile: dict, scout_db_path: Path) -> list[dict]:
 
     # Precompute profile-only values once (not per job)
     candidate_years = _calculate_years_experience(profile)
-    profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
+    profile_skill_names = {s["name"].lower() for s in profile.get("skills", []) if "name" in s}
 
     results = [
         score_one_job(

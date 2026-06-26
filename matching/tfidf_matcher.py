@@ -27,6 +27,8 @@ def profile_to_text(profile: Dict) -> str:
     # Skills (emphasize by repeating)
     skills = profile.get("skills", [])
     for skill in skills:
+        if "name" not in skill:
+            continue
         parts.append(skill["name"])
         # Repeat category once for context
         if skill.get("category"):

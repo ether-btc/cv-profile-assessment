@@ -62,7 +62,7 @@ def score_one_job(
     if candidate_years is None:
         candidate_years = _calculate_years_experience(profile)
     if profile_skill_names is None:
-        profile_skill_names = {s["name"].lower() for s in profile.get("skills", [])}
+        profile_skill_names = {s["name"].lower() for s in profile.get("skills", []) if "name" in s}
 
     # Stage 2: Component scores
     req = score_required_skills(profile, job)

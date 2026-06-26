@@ -57,9 +57,10 @@ _SENIORITY_HINTS: list[tuple[str, str]] = [
 ]
 
 # Match e.g. "5+ years", "3-5 years", "at least 2 years", "minimum 2 years"
+# The \b before the alternation prevents "admin" → "min" false positives.
 _YEARS_PATTERN = re.compile(
     r"(?:"
-    r"(?:at\s+least|minimum|min\.?)\s+(?P<min>\d+)\s*(?:years?|yrs?)"
+    r"\b(?:at\s+least|minimum|min\.?)\s+(?P<min>\d+)\s*(?:years?|yrs?)"
     r"|"
     r"(?P<min2>\d+)\s*(?:\+|to|-|–|—)\s*\d*\s*(?:years?|yrs?)"
     r")",
@@ -239,6 +240,16 @@ def load_jobs_from_scout_db(db_path: str | Path, status: str = "active") -> list
     conn = sqlite3.connect(str(db_path))
     conn.row_factory = sqlite3.Row
     try:
+        # Check for the austria_jobs table with a clear error message
+        table_exists = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='austria_jobs'"
+        ).fetchone()
+        if table_exists is None:
+            raise sqlite3.OperationalError(
+                f"Table 'austria_jobs' not found in {db_path}. "
+                f"This may not be a valid austria-job-scout database."
+            )
+
         if status is not None:
             query = "SELECT * FROM austria_jobs WHERE status = ? ORDER BY first_seen_at DESC"
             rows = conn.execute(query, (status,)).fetchall()

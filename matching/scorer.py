@@ -41,7 +41,7 @@ def score_required_skills(profile: Dict, job: Dict) -> float:
 
     profile_skills = {
         s["name"].lower(): s.get("proficiency", "intermediate")
-        for s in profile.get("skills", [])
+        for s in profile.get("skills", []) if "name" in s
     }
 
     matched_weight = 0.0
