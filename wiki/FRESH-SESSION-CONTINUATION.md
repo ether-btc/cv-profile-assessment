@@ -11,8 +11,8 @@
 - **Path:** `/home/hermes-pi/projects/cv-profile-assessment`
 - **Remote:** `git@github.com:ether-btc/cv-profile-assessment.git`
 - **Branch:** `master`
-- **HEAD:** `5ef8696` — "feat: bias-aware job filter + PDF generator + pipeline wrapper"
-- **Status:** Clean, all pushed, tests green (127 pass + 2 skipped)
+- **HEAD:** `c66229f` — "docs(wiki): 3-cycle Phase-6 audit report + mnemosyne pointers"
+- **Status:** Clean, all pushed, tests green (136 pass + 2 skipped). 3-cycle audit complete.
 
 ### Companion project (austria-job-scout)
 - **Path:** `/home/hermes-pi/projects/austria-job-scout`
@@ -65,10 +65,10 @@
 ## Test Status
 
 ```
-Pytest: 127 passed, 2 skipped in 7.61s
+Pytest: 136 passed, 2 skipped in ~6s
 ```
 
-Test count progression: 19 → 57 → 65 → 72 → 108 → **127** (+19 for job_filters)
+Test count progression: 19 → 57 → 65 → 72 → 108 → 127 (+19 for job_filters) → **136** (+5 for cycle-1 invariance + dict-regression tests)
 
 ---
 
@@ -164,7 +164,7 @@ cd /home/hermes-pi/projects/cv-profile-assessment && source venv/bin/activate
 
 # 3. Tests:
 cd tests && /home/hermes-pi/projects/cv-profile-assessment/venv/bin/python -m pytest -o addopts="" -q
-# → "127 passed, 2 skipped"
+# → "136 passed, 2 skipped"
 ```
 
 ---
