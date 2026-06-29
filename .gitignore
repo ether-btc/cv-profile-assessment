@@ -37,4 +37,7 @@ htmlcov/
 
 # Large data files
 data/esco/*.csv
-data/esco/*.jsondata/processing_history.jsonl
+data/esco/*.json
+
+# Processing history logs (per-machine, regeneratable)
+data/processing_history.jsonl

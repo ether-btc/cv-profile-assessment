@@ -36,12 +36,24 @@ if [[ ! -f "$SCOUT_DB" ]]; then
     python scripts/seed_scout_db_from_samples.py "$SCOUT_DB"
 fi
 
-# Step 3: match
+# Step 3: match. Capture only the trailing progress-line (per the script's
+# summary emit); stderr is preserved separately so python errors are visible.
 MATCH_OUT="${PDF_OUT%.pdf}.json"
-python scripts/match_scout_jobs.py "$PROFILE" "$SCOUT_DB" -o "$MATCH_OUT" 2>&1 | tail -1
+if ! python scripts/match_scout_jobs.py "$PROFILE" "$SCOUT_DB" -o "$MATCH_OUT" \
+        2> "${PDF_OUT%.pdf}.err"; then
+    echo "[run_pipeline] match_scout_jobs FAILED — see ${PDF_OUT%.pdf}.err" >&2
+    exit 5
+fi
+# Surface only the one-line summary to stdout (matches prior UX).
+tail -1 "${PDF_OUT%.pdf}.err" 2>/dev/null || true
 
 # Step 4: PDF
-python scripts/match_to_pdf.py "$MATCH_OUT" -o "$PDF_OUT" 2>&1 | tail -1
+if ! python scripts/match_to_pdf.py "$MATCH_OUT" -o "$PDF_OUT" \
+        2> "${PDF_OUT%.pdf}.pdf.err"; then
+    echo "[run_pipeline] match_to_pdf FAILED — see ${PDF_OUT%.pdf}.pdf.err" >&2
+    exit 6
+fi
+tail -1 "${PDF_OUT%.pdf}.pdf.err" 2>/dev/null || true
 
 echo "[run_pipeline] OK"
 echo "  profile:   $PROFILE"

@@ -30,7 +30,8 @@ from typing import Iterable
 
 
 # Words/phrases that, when present in title OR description, exclude the job.
-# Substring match — kept conservative on purpose (no regex).
+# Substring match — kept conservative on purpose (no regex). Lower-cased once
+# at module load (see _BLOCKLIST_LOWER below) so we don't re-lower per call.
 DEFAULT_BLOCKLIST_KEYWORDS: list[str] = [
     # German / Austrian cold-outreach vocabulary
     "akquise",
@@ -55,7 +56,8 @@ DEFAULT_BLOCKLIST_KEYWORDS: list[str] = [
 
 
 # Words/phrases that, when present, mark the job as borderline. Job stays
-# in the ranking but is annotated with the matched terms.
+# in the ranking but is annotated with the matched terms. Lower-cased once
+# (see _FLAGLIST_LOWER).
 DEFAULT_FLAG_KEYWORDS: list[str] = [
     # Acquisition as PART of role (not whole role)
     "akquiseanteil",
@@ -71,10 +73,42 @@ DEFAULT_FLAG_KEYWORDS: list[str] = [
 ]
 
 
-def _matches_any(text: str, keywords: Iterable[str]) -> list[str]:
-    """Return subset of keywords that appear in text (case-insensitive)."""
-    lowered = text.lower()
-    return [kw for kw in keywords if kw.lower() in lowered]
+# Module-level pre-lowered keyword sets. classify_job() lower-cases the
+# haystack (job text) once per call; matching against pre-lowered keywords
+# keeps the substring check O(N) without re-lowering per keyword.
+_BLOCKLIST_LOWER: frozenset[str] = frozenset(k.lower() for k in DEFAULT_BLOCKLIST_KEYWORDS)
+_FLAGLIST_LOWER: frozenset[str] = frozenset(k.lower() for k in DEFAULT_FLAG_KEYWORDS)
+
+
+def _matches_any(text: str, keywords_lower: frozenset[str] | Iterable[str]) -> list[str]:
+    """Return subset of keywords that appear in text (case-insensitive).
+
+    `keywords_lower` SHOULD be pre-lowered for hot-path performance. If you
+    pass a mixed-case iterable, we lower each on the fly (slower, but safe).
+    Returns the matched keywords in their original-case (per the original
+    public list), not the lowered form — that way end-users see "Akquise"
+    in filter reasons, not "akquise".
+
+    To honour that contract, we keep the mapping internally.
+    """
+    # Use pre-lowered search set; map back to original-case for reporting.
+    if isinstance(keywords_lower, frozenset):
+        # Caller passes the pre-lowered frozenset; route via the module list
+        # for round-trip back to original-case. This branch is the hot path.
+        search_set = keywords_lower
+        if keywords_lower is _BLOCKLIST_LOWER:
+            lookup = {k.lower(): k for k in DEFAULT_BLOCKLIST_KEYWORDS}
+        elif keywords_lower is _FLAGLIST_LOWER:
+            lookup = {k.lower(): k for k in DEFAULT_FLAG_KEYWORDS}
+        else:
+            lookup = {k: k for k in keywords_lower}
+    else:
+        # Slow path (ad-hoc strings). Lower them here.
+        lowered = [k.lower() for k in keywords_lower]
+        search_set = set(lowered)
+        lookup = dict(zip(lowered, [k for k in keywords_lower]))
+    haystack = text.lower()
+    return [lookup[k] for k in search_set if k in haystack]  # noqa: E272 (preserving original case)
 
 
 def combined_text(job: dict) -> str:
