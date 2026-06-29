@@ -1,9 +1,13 @@
-"""Profile builder — assembles parsed CV data into a valid PersonalProfile."""
+"""Profile builder — assembles parsed CV data into a valid PersonalProfile.
+
+Phase 5: Adds language detection and routes entities to the right NER model
+(en_core_web_sm or de_core_news_sm) based on detected language.
+"""
 
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional, Tuple
 
 # Add project root to path so we can import parser package
 PROJECT_ROOT = Path(__file__).parent.parent
@@ -17,13 +21,15 @@ from parser import (
     extract_entities,
     extract_skills,
 )
+from cv_profile_assessment import detect_language, log_processing_run
 
 
-def build_profile_from_cv(cv_path: str) -> Dict:
+def build_profile_from_cv(cv_path: str, log: bool = True) -> Dict:
     """Build a PersonalProfile dict from a CV file (PDF or DOCX).
 
     Args:
         cv_path: Absolute path to CV file (.pdf or .docx).
+        log: If True (default), append a usage-history record after building.
 
     Returns:
         Dict matching PersonalProfile JSON Schema.
@@ -47,11 +53,16 @@ def build_profile_from_cv(cv_path: str) -> Dict:
     else:
         raise ValueError(f"Unsupported file format: {suffix}. Use .pdf, .docx, or .txt")
 
-    # Step 2: Segment sections
+    # Step 1b: Detect language (default "en" if unknown)
+    language, _confidence = detect_language(text)
+    if language == "unknown":
+        language = "en"
+
+    # Step 2: Segment sections (language-agnostic — patterns cover both)
     sections = segment_sections(text)
 
-    # Step 3: Extract entities
-    entities = extract_entities(sections)
+    # Step 3: Extract entities (routes to DE or EN NER based on detected language)
+    entities = extract_entities(sections, language=language)
 
     # Step 4: Extract skills
     skills = extract_skills(text, sections)
@@ -65,7 +76,7 @@ def build_profile_from_cv(cv_path: str) -> Dict:
             "phone": entities.get("phone") or "",
             "location": entities.get("location") or {},
             "summary": sections.get("summary", ""),
-            "languages": [],
+            "languages": entities.get("languages", []),
         },
         "skills": skills,
         "experience": _parse_experience(sections.get("experience", "")),
@@ -82,14 +93,57 @@ def build_profile_from_cv(cv_path: str) -> Dict:
             "version": "1.0",
             "last_updated": now,
             "source": cv_path,
+            "language": language,
             "confidence_scores": {
-                "skills_extraction": 0.7,
+                "skills_extraction": _skills_confidence(skills, sections),
                 "esco_mapping": 0.0,
             },
         },
     }
 
+    # Step 6: Append usage history (Phase 5)
+    if log:
+        warnings = []
+        # Warn if section segmentation collapsed everything into 'header'
+        if list(sections.keys()) == ["header"]:
+            warnings.append(
+                "Section segmentation collapsed: no recognized section headers detected. "
+                "Text was treated as a single 'header' bucket — downstream parsing "
+                "(experience entries, education, skills) is degraded."
+            )
+        # Warn if language couldn't be detected
+        if language == "en" and not any(c in text for c in "äöüÄÖÜß"):
+            pass  # Likely genuinely English
+        elif language == "en" and any(c in text for c in "äöüÄÖÜß"):
+            warnings.append(
+                "German characters detected but language classifier returned 'en'. "
+                "Section patterns used EN vocabulary, may miss German headers."
+            )
+        log_processing_run(
+            source_path=cv_path,
+            profile=profile,
+            language=language,
+            warnings=warnings,
+        )
+
     return profile
+
+
+def _skills_confidence(skills: List[Dict], sections: Dict[str, str]) -> float:
+    """Score skill extraction confidence.
+
+    Higher when a dedicated Skills section was found and parsed;
+    lower when skills come from full-text keyword matching alone.
+    """
+    if not skills:
+        return 0.0
+    if "skills" in sections:
+        # Dedicated skills section found — high confidence
+        return 0.9
+    if skills and not sections.get("skills"):
+        # Skills extracted from full text only — medium confidence
+        return 0.6
+    return 0.7
 
 
 def _parse_experience(text: str) -> list:
@@ -126,5 +180,3 @@ def _parse_experience(text: str) -> list:
         })
 
     return result
-
-
