@@ -11,9 +11,9 @@ from .scorer import (
     PROFICIENCY_WEIGHT,
     _calculate_years_experience,
 )
-from .pipeline import score_one_job
+from .pipeline import score_one_job, score_many_jobs, score_jobs_parallel
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 __all__ = [
     "compute_tfidf_similarity",
     "profile_to_text",
@@ -24,6 +24,8 @@ __all__ = [
     "score_preferred",
     "compute_overall_score",
     "score_one_job",
+    "score_many_jobs",
+    "score_jobs_parallel",
     "DEFAULT_WEIGHTS",
     "PROFICIENCY_WEIGHT",
     "_calculate_years_experience",

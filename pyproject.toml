@@ -1,0 +1,65 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cv-profile-assessment"
+version = "0.2.0"
+description = "Privacy-focused CV/resume parser and job-candidate matching engine for the Austrian/EU job market"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.11"
+authors = [
+    {name = "ether-btc", email = "ether-btc@users.noreply.github.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+    "pdfminer.six>=20260107",
+    "python-docx>=1.2.0",
+    "spacy>=3.8.0",
+    "scikit-learn>=1.9.0",
+    "pydantic>=2.13.0",
+    "jsonschema>=4.26.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.1.0",
+    "pytest-cov>=4.1.0",
+]
+scout = [
+    "austria-job-scout",
+]
+
+[project.scripts]
+cv-parse = "cv_profile_assessment.cli:parse_main"
+cv-match = "cv_profile_assessment.cli:match_main"
+cv-match-scout = "cv_profile_assessment.cli:match_scout_main"
+
+[project.urls]
+Homepage = "https://github.com/ether-btc/cv-profile-assessment"
+Repository = "https://github.com/ether-btc/cv-profile-assessment.git"
+Documentation = "https://github.com/ether-btc/cv-profile-assessment/blob/main/README.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["parser*", "profile_builder_pkg*", "matching*", "integration*", "cv_profile_assessment*"]
+
+[tool.setuptools.package-data]
+profile_builder_pkg = ["*.json"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v --tb=short"
