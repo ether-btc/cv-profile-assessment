@@ -93,13 +93,33 @@ def combined_text(job: dict) -> str:
         v = job.get(k) or ""
         if v:
             parts.append(v if isinstance(v, str) else str(v))
-    # requirements can be list[str] or list[dict]
+    # Requirements can be list[str] OR list[dict]. For dict-shaped entries
+    # we extract the first non-empty text-bearing key (text/name/requirement/
+    # value). Raw repr() of a dict would emit the curly-brace literal into
+    # the searchable text and could trigger spurious keyword matches; we
+    # therefore never call str(dict).
+    #
+    # Multiple text-bearing keys in one dict are still combined by " | "
+    # joining — a job row commonly bundles {name, text} for the same item,
+    # and dropping one would underrepresent the search surface.
+    _REQ_DICT_KEYS = ("text", "requirement", "value", "name")
     reqs = job.get("requirements") or []
     for r in reqs:
         if isinstance(r, str):
-            if r:
+            stripped = r.strip() if r else ""
+            if stripped:
                 parts.append(r)
-        elif r is not None:
+        elif isinstance(r, dict):
+            extracted = [
+                str(r[k]).strip()
+                for k in _REQ_DICT_KEYS
+                if r.get(k) and isinstance(r.get(k), (str, int, float))
+                and str(r[k]).strip()
+            ]
+            if extracted:
+                parts.append(" | ".join(extracted))
+        elif isinstance(r, (int, float)) and r:
+            # Plain numeric entry (rare but valid in some adapter formats)
             parts.append(str(r))
     return "\n".join(parts)
 

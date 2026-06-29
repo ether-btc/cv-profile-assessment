@@ -175,6 +175,56 @@ class TestCombinedText:
         text = combined_text(job).lower()
         assert "b2b sales" in text
 
+    def test_dict_requirement_does_not_emit_raw_repr(self):
+        """Defense-in-depth: a dict requirement must NEVER call str(dict).
+
+        Raw repr() of a dict dumps curly-brace literal into the searchable
+        text. A side-channel could leak sensitive data (key names) and could
+        trigger spurious keyword matches."""
+        job = {"title": "Nice role", "requirements": [
+            {"text": "B2B sales", "noise": "kaltakquise"}  # 'noise' is non-text, dropped
+        ]}
+        text = combined_text(job)
+        # Neither the repr-style '{' nor the key names must leak into the text.
+        assert "{" not in text
+        assert "}" not in text
+        assert "'text'" not in text
+        assert "'noise'" not in text
+        assert "'kaltakquise'" not in text  # would only appear via repr
+        # The legitimate 'text' value should still be present.
+        assert "B2B sales" in text
+
+    def test_dict_requirement_extracts_all_known_keys(self):
+        """Multi-key entries (e.g. {text:, value:}) must extract both."""
+        job = {"title": "x", "requirements": [
+            {"text": "Python", "name": "core"},
+            {"value": "Salesforce"},
+        ]}
+        text = combined_text(job)
+        assert "python" in text.lower()
+        assert "salesforce" in text.lower()
+        assert "core" in text.lower()
+
+    def test_dict_requirement_whitespace_only_dropped(self):
+        """Whitespace-only 'text' falls through; the next usable key wins."""
+        job = {"title": "x", "requirements": [
+            {"text": "   ", "value": "Salesforce"},
+        ]}
+        text = combined_text(job)
+        assert "salesforce" in text.lower()
+        # No stray "|" between two empty halves from the text field
+        assert "||" not in text
+
+    def test_dict_requirement_str_key_types_handled(self):
+        """Numeric values are coerced to string; non-str/int/float dropped."""
+        job = {"title": "x", "requirements": [
+            {"value": 5},
+            {"text": "Python"},
+        ]}
+        text = combined_text(job)
+        assert "5" in text
+        assert "python" in text.lower()
+
     def test_handles_missing(self):
         text = combined_text({})
         assert isinstance(text, str)

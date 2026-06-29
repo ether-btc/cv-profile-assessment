@@ -50,14 +50,17 @@ def match_scout_jobs(profile: dict, scout_db_path: Path) -> dict:
     candidate_years = _calculate_years_experience(profile)
     profile_skill_names = {s["name"].lower() for s in profile.get("skills", []) if "name" in s}
 
-    # Bias filter split
+    # Bias filter split.
+    # Defense: don't mutate the input job dict — many adapters (e.g. dict
+    # caches, generator-backed load_jobs_from_scout_db) hand back the same
+    # dict across runs, and mutating it leaks state across invocations.
     scored, excluded = [], []
     n_flagged = 0
     for job in jobs:
         decision, reasons = classify_job(job)
         annotation = {"decision": decision, "reasons": reasons}
         if decision == "exclude":
-            # Excluded jobs: keep a slim record (no scoring) with filter annotation
+            # Excluded jobs: keep a slim record (no scoring) with filter annotation.
             source = job.get("_source") or {}
             excluded.append({
                 "job_title": job.get("title", "Unknown"),
@@ -70,10 +73,11 @@ def match_scout_jobs(profile: dict, scout_db_path: Path) -> dict:
             continue
         if decision == "flag":
             n_flagged += 1
-        # Mutate job to carry filter annotation through scoring
-        job["_filter"] = annotation
+        # Build a *new* dict for scoring so we never mutate the source row.
+        job_copy = dict(job)
+        job_copy["_filter"] = annotation
         result = score_one_job(
-            profile, job,
+            profile, job_copy,
             candidate_years=candidate_years,
             profile_skill_names=profile_skill_names,
         )
