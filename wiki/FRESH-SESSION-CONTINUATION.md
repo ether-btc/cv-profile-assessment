@@ -1,7 +1,7 @@
 # cv-profile-assessment — Fresh Session Continuation Reference
 
 **Created:** 2026-06-29
-**Last session end:** Phase 5 shipped. German CV parsing fully functional.
+**Last session end:** Phase 5 shipped + Scout-Pipeline wired. Bias filter + PDF generator live.
 
 ---
 
@@ -11,192 +11,188 @@
 - **Path:** `/home/hermes-pi/projects/cv-profile-assessment`
 - **Remote:** `git@github.com:ether-btc/cv-profile-assessment.git`
 - **Branch:** `master`
-- **HEAD:** `f657b8d` — "feat(phase5): German CV support + language detection + usage history"
-- **Status:** Clean, all pushed, tests green (108 pass + 2 skipped)
+- **HEAD:** `5ef8696` — "feat: bias-aware job filter + PDF generator + pipeline wrapper"
+- **Status:** Clean, all pushed, tests green (127 pass + 2 skipped)
 
-### Phase 5 Deliverables (committed f657b8d)
+### Companion project (austria-job-scout)
+- **Path:** `/home/hermes-pi/projects/austria-job-scout`
+- **Status:** Operational as of 2026-06-29 — venv installed, 151/151 tests pass, db-init/db-stats CLI works.
+- Symlink at `~/.hermes/projects/austria-job-scout` resolves to `/media/hermes-pi/f3fd4a1d-.../hermes/projects/austria-job-scout/`
+- Job-research-framework symlink at `~/.hermes/projects/job-research-framework` **had to be repaired** 2026-06-29 — was pointing to dead `/mnt/usb/...` mount; re-linked to `/media/hermes-pi/f3fd4a1d-.../hermes/projects/job-research-framework/`.
 
-1. **Language detection** (`cv_profile_assessment/language_detection.py`)
-   - Common-word frequency heuristic, dependency-free (no langdetect)
-   - Returns (lang_code, confidence); "de"/"en"/"unknown"
+---
 
-2. **Usage history** (`cv_profile_assessment/usage_history.py`)
-   - Append-only JSONL log at `data/processing_history.jsonl`
-   - Records per run: timestamp, source, language, entity counts, confidence, warnings
-   - CLI flag `--history` shows formatted table
-   - `--no-log` to skip recording
+## Phase 5 Deliverables (commit f657b8d, shipped 2026-06-29 earlier)
 
-3. **German section segmentation** (`parser/section_segmenter.py`)
-   - Extended SECTION_PATTERNS with DE headers:
-     BERUFSERFAHRUNG, AUSBILDUNG, KENNTNISSE, SPRACHEN, ITK, WEITERBILDUNG, SOFT SKILLS,
-     FÄHIGKEITEN, KOMPETENZEN, ERFAHRUNG, TÄTIGKEIT, ZERTIFIKATE, etc.
-   - Soft-skill pattern fixed: `^(skills|...|soft skills|...)`
+1. **Language detection** — common-word frequency heuristic, dependency-free
+2. **Usage history** — append-only JSONL log + CLI `--history` flag
+3. **German section segmentation** — SECTION_PATTERNS for FlowCV / DIN-style / Europass
+4. **Bilingual NER** — en_core_web_sm + de_core_news_sm, routes by detected language. Austrian postal codes. DE/AT phone formats.
+5. **DACH skill taxonomy** — SAP, BMC Remedy, SCCM, MDM, MS AD, Oracle/Microsoft CRM, Amdocs, Clarify, MS Office, German soft skills
+6. **Pipeline integration** — detect_language → route NER → confidence scoring → history log
+7. **CLI upgrades** — `--history`, `--no-log`, post-write summary
+8. **Tests** — 36 new in test_german_i18n.py
 
-4. **Bilingual NER** (`parser/entity_extractor.py`)
-   - Loads both `en_core_web_sm` and `de_core_news_sm`
-   - Routes by detected language
-   - Austrian postal-code recognition (4 digits + city → Wien/Graz/...)
-   - DE/AT phone formats (+43, +49, 0-prefix)
-   - Languages field returns schema-compatible `[{language, fluency}]` with German names normalized to English
+## Phase 6 Deliverables (commit 5ef8696, shipped 2026-06-29 evening)
 
-5. **DACH skill taxonomy** (`parser/skill_extractor.py`)
-   - Added: SAP, SAP R/3, SAP ERP/HR/Procurement, BMC Remedy, SCCM, MDM, MS AD, Active Directory
-   - Added enterprise products: MS Office, Microsoft CRM, Microsoft Ads, Google Analytics, Google Ads, Salesforce
-   - Added telecom platforms: Amdocs, Clarify, Oracle CRM
-   - German soft skills: Einfühlungsvermögen, Kollaboration, Organisation, Kommunikationsfähigkeit, Kommunikationsfertigkeit
-   - DACH domains: Telekommunikation, B2B Sales, Account Management, Personalvermittlung, Outplacement, Online Marketing, MarCom
-   - Word-boundary matcher uses `(?<![a-z0-9])`/`(?![a-z0-9])` (NOT `\b`) — avoids false positives on multi-word tokens
+### Bias-aware job filter (`integration/job_filters.py`)
+- `DEFAULT_BLOCKLIST_KEYWORDS` — Akquise, Kaltakquise, Hunter, Außendienst, etc.
+- `DEFAULT_FLAG_KEYWORDS` — Neukunden, Akquiseanteil (borderline; kept in ranking with annotation)
+- Pure functions: `classify_job`, `filter_jobs`, `combined_text`
+- Override-able via parameters (test-friendly)
+- 19 unit tests covering semantics, empty inputs, override behaviour
 
-6. **Pipeline integration** (`profile_builder_pkg/profile_builder.py`)
-   - Calls `detect_language()` before entities
-   - Routes NER model by language
-   - Adds `metadata.language` to profile
-   - Computes confidence based on whether dedicated Skills section was found (0.9 if yes, 0.6 if no)
-   - Appends usage history record with warnings
+### Updated `scripts/match_scout_jobs.py`
+- Applies filter before scoring
+- Output structure: `{ranked: [...], excluded: [...], summary: {...}}`
+- New CLI flag `--no-excluded` for slimmer output
+- Each scored job carries `_filter: {decision, reasons}` annotation
 
-7. **CLI upgrades** (`scripts/parse_cv.py`)
-   - `--history` shows table, `--no-log` skips recording
-   - Post-write summary: "Language: de | Skills: 10 | Experience: 1 | Languages extracted: 2"
+### PDF generator (`scripts/match_to_pdf.py`)
+- fpdf2-based, A4 portrait, one page per job
+- Bucket headers (Ranked / Flagged / Excluded)
+- Filter annotation highlighted red (exclude) / orange (flag)
+- Latin-1 safe (Replaces non-latin-1 chars with `?` — ensures printable output for German/Austrian content)
+- CLI flags: `--include-only`, `--exclude-flagged`
 
-8. **Tests** (`tests/test_german_i18n.py`)
-   - 36 new tests: language detection, German section patterns, language extraction, German skills, German phone, usage history, NER routing
+### End-to-end pipeline wrapper (`scripts/run_pipeline.sh`)
+- Idempotent: seeds scout DB if missing, parses CV if profile missing
+- Zero web traffic (uses `data/sample_jobs/*.json` seed data)
+- Outputs: profile JSON, scout DB, match JSON, PDF
 
 ---
 
 ## Test Status
 
 ```
-108 passed, 0 failed, 2 skipped
+Pytest: 127 passed, 2 skipped in 7.61s
 ```
 
-Test count progression: 19 → 57 → 65 → 72 → **108**
+Test count progression: 19 → 57 → 65 → 72 → 108 → **127** (+19 for job_filters)
 
 ---
 
-## Real CV Reprocessing Result
+## Real CV Reprocessing (Phase 5 result, unchanged in Phase 6)
 
-Source: `Matthias_K_FlowCV_Resume_2026-06-29.pdf` (FlowCV two-column layout, 126 KB)
+Source: `Matthias_K_FlowCV_Resume_2026-06-29.pdf`
 
-**Phase 4 output**: name "Matthias K.\nÖsterreich", location {}, languages [], skills: 2 (oracle, r)
-**Phase 5 output**:
 - Language: de
 - Name: "Matthias K."
 - Location: {city: "Wien", country: "Austria"}
-- Languages: [{language: "German", fluency: "native"}, {language: "Hungarian", fluency: "fluent"}]
-- Skills: 10 (SAP, MS Office, Microsoft CRM, Oracle, Oracle CRM, plus 4 German soft skills)
-- Experience: 1 entry (entire career lumped — see Phase 5.1 below)
+- Languages: German (native), Hungarian (fluent)
+- Skills: 10 (SAP, MS Office, Microsoft CRM, Oracle, Oracle CRM, plus German soft skills)
+
+Profile JSON: `/tmp/matthias_profile.json`
 
 ---
 
-## Known Limitations / Phase 5.1 Candidates
-
-### Priority 1: FlowCV 2-column PDF layout
-**Problem**: FlowCV renders left+right column concurrently; pdfminer.six reads top-to-bottom across both columns, scrambling the year+company block. This is why all 13 positions land in one entry.
-
-**Options to evaluate (spike needed)**:
-- **pdfplumber**: layout-aware via word positions, has a CropFilter for columns. Mid-complexity.
-- **PyMuPDF (fitz)**: best layout preservation, supports redaction, headers, etc. Native ARM64 build availability needs checking.
-- **pdfminer.six with custom LAParams**: can detect column gutters from word positions. High effort.
-
-**Recommendation**: pdfplumber — adds ~3MB dependency, has column detection primitives, well-maintained.
-
-### Priority 2: Profile diff feature (usage history subset)
-Show side-by-side comparison of profile after re-processing the same source — useful for measuring skill-taxonomy improvements over time. Marked in plan but not yet built.
-
-### Priority 3: Sophisticated experience parsing
-Build real experience-entry extraction (not `\n\n` grouping). Each block has clear structure:
-- Date range (en dash separator)
-- Postal code + city
-- Company name + role category
-- Bullet list of duties
-
-Needs regex / spaCy-rule-based / few-shot-LLM decision.
-
----
-
-## Resume / Profile Artifacts
-
-Working CV-derived profile (verbatim from session):
-
-### Concise (German) profile
-A condensed factual listing of capabilities and accomplishments, useful as CV-basis input. Stored in Mnemosyne under ID listed below.
-
-### Labor profile (Arbeitskraftprofil)
-A wider net: statt nur Stationen auflisten, leitet aus jeder Tätigkeit die Tätigkeitsbeschreibung ab und benennt Branchen und Rollen, in denen die Erfahrung verwertbar ist. Includes "Verwertbar für" callouts per skill area (B2B-Vertrieb, Online-Marketing, Recruiting, IT-Support, Schulung/Beratung). Stored in Mnemosyne under ID listed below.
-
----
-
-## Quickstart for Fresh Session
+## End-to-end smoke run (Phase 6 verification)
 
 ```bash
-cd ~/projects/cv-profile-assessment
-source venv/bin/activate
-python -m pytest tests/ -q            # expect 108 passed, 2 skipped
-python scripts/parse_cv.py --history  # see last runs
-python scripts/parse_cv.py "/home/hermes-pi/Sync/shared/Matthias_K_FlowCV_Resume_2026-06-29.pdf" -o /tmp/profile.json
+cd /home/hermes-pi/projects/cv-profile-assessment && source venv/bin/activate
+./scripts/run_pipeline.sh /tmp/matthias_profile.json /tmp/scout_pipeline.sqlite /tmp/pipeline_smoke.pdf
+# → "Seeded 4 jobs"; "Results written"; "PDF written to /tmp/pipeline_smoke.pdf (4 job pages)"
 ```
 
-### Resume work: Phase 5.1 FlowCV layout
+Sample match result (4 jobs, 0 excluded, scores 0.341 across the board because sample_jobs are dev fixtures):
 
-Pre-work:
-1. Spike pdfplumber on the Matthias CV — does it preserve column structure?
-2. If yes, integrate `pdf_extractor.py` to use pdfplumber for layout-aware extraction
-3. Re-run, verify experience splits into 13 entries (or close)
+```
+RANKED:
+  [0.341] DevOps Engineer                          (include)
+  [0.341] Frontend Developer (React/Next.js)       (include)
+  [0.341] NLP Research Engineer                    (include)
+  [0.341] Senior Backend Engineer (Python)         (include)
+```
 
-### Resume work: Profile diff feature
+With synthetic hunter-flavored jobs:
+```
+RANKED:
+  [0.538] HR-Sachbearbeiter (m/w/d)                            filter=flag
+  [0.479] 1st Level IT-Support (m/w/d)                         filter=include
+  [0.478] Sachbearbeiter Online-Marketing (m/w/d)              filter=include
+  [0.353] Trainer / Coach für Bildungsprogramm (m/w/d)         filter=include
 
-1. Add `diff_profile(jsonl_path, source_key)` to `usage_history.py`
-2. Wire to `parse_cv.py --diff <source>`
-3. Add tests
+EXCLUDED:
+  [exclude] Sales Hunter (m/w/d)                                reasons=['akquise', 'neukundengewinnung', 'kaltakquise', 'hunter', 'außendienst', 'sales hunter']
+```
+
+---
+
+## Known Limitations / Phase 6.1 Candidates
+
+### Priority 1: Real Wien-KMU Discovery (Phase 6 main goal — NOT YET STARTED)
+**Status:** Infrastructure ready, fetching not yet executed.
+**Prerequisites met:**
+- austria-job-scout operational (151/151 tests, CLI working)
+- cv-profile-assessment bias filter live (hunter/sales roles excluded)
+- Pipeline wrapper produces PDF for Syncthing-shared folder
+**Blocked on:** explicit decision by user (you) to spend the daily Cloudflare/WAF budget (≤10/Tag per user PARAMOUNT rule).
+**When greenlit, run:**
+```bash
+cd /home/hermes-pi/projects/cv-profile-assessment
+source venv/bin/activate
+# Strategy: use crt.sh CT log mining for Wien-KMU subdomains (NOT CF-protected),
+# deduplicate against existing scout DB, then scrape career pages with curl_cffi.
+# Output lands in /home/hermes-pi/Sync/shared/jobs-YYYY-MM-DD.pdf via run_pipeline.sh
+```
+
+### Priority 2: FlowCV 2-column PDF layout (still unsolved from Phase 5)
+**Problem:** pdfminer.six reads top-to-bottom across columns; 13 jobs collapse into 1.
+**Options:** pdfplumber (column-aware), PyMuPDF (better layout preservation).
+
+### Priority 3: stealth-core wreq-backend build (nice-to-have)
+- Missing `libclang-dev`; `sudo apt install -y libclang-dev` is the fix.
+- 22 min cold build + 10 min incremental after dep install.
+- Optional: curl_cffi (Python) path is functional for residential-IP/low-stealth targets. Build is only needed for hardened CF-bypass.
+
+---
+
+## Quickstart (fresh session)
+
+```bash
+# 0. Verify infra (one-time after reboot):
+ls -la ~/.hermes/projects/job-research-framework  # symlink should resolve
+ls /home/hermes-pi/projects/austria-job-scout/venv  # venv should exist
+cd /home/hermes-pi/projects/cv-profile-assessment && ls venv/
+
+# 1. End-to-end (zero web):
+cd /home/hermes-pi/projects/cv-profile-assessment && source venv/bin/activate
+./scripts/run_pipeline.sh  # uses defaults; outputs to /home/hermes-pi/Sync/shared/
+
+# 2. With specific files:
+./scripts/run_pipeline.sh /tmp/matthias_profile.json /tmp/scout_pipeline.sqlite /tmp/out.pdf
+
+# 3. Tests:
+cd tests && /home/hermes-pi/projects/cv-profile-assessment/venv/bin/python -m pytest -o addopts="" -q
+# → "127 passed, 2 skipped"
+```
+
+---
+
+## Pitfalls (baked-in)
+
+- **Don't change proficiency default from "advanced"** in skill_extractor.py — the audit's "honest 0.7 fallback" was for date extraction, not proficiency.
+- **Use `(?<![a-z0-9])`/`(?![a-z0-9])`** for word boundaries, NOT `\b` (fails on `c++`, `.NET`, `node.js`).
+- **`profile_builder_pkg/`** stays renamed (stdlib `profile` clash — well-documented).
+- **JSON Schema languages field** is `[{language, fluency}]` objects, not flat strings.
+- **Pytest from project root** collects 0 tests due to duplicated `-q` from addopts. Run pytest from `tests/` directory OR pass `-o addopts=""` when running from root.
+- **austria-job-scout** symlink at `~/.hermes/projects/austria-job-scout` was correctly pointing at USB UUID mount already; **job-research-framework** symlink was broken — needed `ln -sfn /media/hermes-pi/<uuid>/hermes/projects/job-research-framework`. If you see "No tests collected" or "No module named" from jrf, the symlink is likely the issue.
+- **fpdf2 default fonts only support latin-1** — German umlauts (ä, ö, ü, ß) encoded as `?`. For real Ö/Umlaut PDF output, register a TTF font (e.g. Helvetica DejaVu). Not blocking; PDF still readable.
 
 ---
 
 ## Mnemosyne Persistence
 
-The German labor profile and concise profile are stored in Mnemosyne with these exact IDs:
-- (See mnemosyne_remember calls — IDs returned after each call)
+Phase 5 + Phase 6 status: stored as Mnemosyne memories with IDs:
+- (see Phase 5 record for cv-profile-assessment status)
+- (see Phase 6 record for scout-integration status)
 
-To recall in a fresh session, use `mnemosyne_recall(query="Matthias K. profile")` or query by Mnemosyne ID directly.
-
----
-
-## Wiki Locations
-
-- `wiki/DEVELOPMENT_LOG.md` — 2026-06-29 first real CV test + i18n gap inventory
-- `wiki/FRESH-SESSION-CONTINUATION.md` — this file
-- Phase 4 references: `wiki/audits/cv-profile-assessment-full-audit-2026-06-26.md`
+Recall: `mnemosyne_recall(query="cv-profile-assessment Phase 6 bias filter")`
 
 ---
 
-## Pitfalls & Conventions
+## See Also
 
-- **Don't change proficiency default**: kept "advanced" to preserve Phase 1 scoring behavior. The "intermediate" change broke a regression test (scorer at 0.6 vs 0.7 threshold).
-- **Don't rename `profile_builder_pkg/`**: it was renamed from `profile/` because the stdlib `profile` module shadowed it (caused spaCy `cProfile` import failure — documented as a Phase 2 audit lesson).
-- **Word-boundary regex**: use `(?<![a-z0-9])`/`(?![a-z0-9])`, NOT `\b`. `\b` fails for tokens ending in non-word chars (`c++`, `.NET`, `node.js`).
-- **DE spaCy loading**: `de_core_news_sm` is downloaded via `python -m spacy download de_core_news_sm` (already installed on this Pi as of 2026-06-29).
-- **JSON Schema languages field**: requires `[{language, fluency}]` objects, not flat strings.
-- **Test runner**: must `source venv/bin/activate` before pytest. pytest auto-discovers tests/, but the venv has spacy + en/de models pre-installed.
-
----
-
-## Resume Commands Cheat Sheet
-
-```bash
-# Process any CV
-python scripts/parse_cv.py <path/to/cv.pdf> -o /tmp/out.json
-
-# See history
-python scripts/parse_cv.py --history
-
-# Skip logging (for repeated dry-runs)
-python scripts/parse_cv.py <path> --no-log
-
-# Run all tests
-python -m pytest tests/ -q
-
-# Run only German tests
-python -m pytest tests/test_german_i18n.py -v
-
-# Run only smoke tests
-python -m pytest tests/test_smoke.py -v
-```
+- `wiki/DEVELOPMENT_LOG.md` — 2026-06-29 first real CV test + Phase 5 gap inventory
+- `~/projects/austria-job-scout/AUDIT_REPORT_2026-06-23.md` — pre-Phase-6 audit baseline
+- `~/projects/cv-profile-assessment/development_log.md` (if exists) — pre-Phase-5 history
