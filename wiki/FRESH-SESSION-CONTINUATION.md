@@ -1,231 +1,202 @@
-# CV Profile Assessment — Fresh Session Continuation Reference
+# cv-profile-assessment — Fresh Session Continuation Reference
 
-**Created:** 2026-06-26  
-**Last session end:** Multi-cycle audit complete, all fixes committed/pushed, wiki documented.
+**Created:** 2026-06-29
+**Last session end:** Phase 5 shipped. German CV parsing fully functional.
 
 ---
 
-## Current State (as of 2026-06-26)
+## Current State
 
 ### Repository
 - **Path:** `/home/hermes-pi/projects/cv-profile-assessment`
 - **Remote:** `git@github.com:ether-btc/cv-profile-assessment.git`
-- **Branch:** `master` (not `main`)
-- **HEAD:** `8421264` — "ponytail: Cycle 2 cleanup (180 lines removed) + scorer substring fix"
-- **Status:** Clean, all pushed, tests green (72/72)
+- **Branch:** `master`
+- **HEAD:** `f657b8d` — "feat(phase5): German CV support + language detection + usage history"
+- **Status:** Clean, all pushed, tests green (108 pass + 2 skipped)
 
-### Recent Commits (audit series)
+### Phase 5 Deliverables (committed f657b8d)
+
+1. **Language detection** (`cv_profile_assessment/language_detection.py`)
+   - Common-word frequency heuristic, dependency-free (no langdetect)
+   - Returns (lang_code, confidence); "de"/"en"/"unknown"
+
+2. **Usage history** (`cv_profile_assessment/usage_history.py`)
+   - Append-only JSONL log at `data/processing_history.jsonl`
+   - Records per run: timestamp, source, language, entity counts, confidence, warnings
+   - CLI flag `--history` shows formatted table
+   - `--no-log` to skip recording
+
+3. **German section segmentation** (`parser/section_segmenter.py`)
+   - Extended SECTION_PATTERNS with DE headers:
+     BERUFSERFAHRUNG, AUSBILDUNG, KENNTNISSE, SPRACHEN, ITK, WEITERBILDUNG, SOFT SKILLS,
+     FÄHIGKEITEN, KOMPETENZEN, ERFAHRUNG, TÄTIGKEIT, ZERTIFIKATE, etc.
+   - Soft-skill pattern fixed: `^(skills|...|soft skills|...)`
+
+4. **Bilingual NER** (`parser/entity_extractor.py`)
+   - Loads both `en_core_web_sm` and `de_core_news_sm`
+   - Routes by detected language
+   - Austrian postal-code recognition (4 digits + city → Wien/Graz/...)
+   - DE/AT phone formats (+43, +49, 0-prefix)
+   - Languages field returns schema-compatible `[{language, fluency}]` with German names normalized to English
+
+5. **DACH skill taxonomy** (`parser/skill_extractor.py`)
+   - Added: SAP, SAP R/3, SAP ERP/HR/Procurement, BMC Remedy, SCCM, MDM, MS AD, Active Directory
+   - Added enterprise products: MS Office, Microsoft CRM, Microsoft Ads, Google Analytics, Google Ads, Salesforce
+   - Added telecom platforms: Amdocs, Clarify, Oracle CRM
+   - German soft skills: Einfühlungsvermögen, Kollaboration, Organisation, Kommunikationsfähigkeit, Kommunikationsfertigkeit
+   - DACH domains: Telekommunikation, B2B Sales, Account Management, Personalvermittlung, Outplacement, Online Marketing, MarCom
+   - Word-boundary matcher uses `(?<![a-z0-9])`/`(?![a-z0-9])` (NOT `\b`) — avoids false positives on multi-word tokens
+
+6. **Pipeline integration** (`profile_builder_pkg/profile_builder.py`)
+   - Calls `detect_language()` before entities
+   - Routes NER model by language
+   - Adds `metadata.language` to profile
+   - Computes confidence based on whether dedicated Skills section was found (0.9 if yes, 0.6 if no)
+   - Appends usage history record with warnings
+
+7. **CLI upgrades** (`scripts/parse_cv.py`)
+   - `--history` shows table, `--no-log` skips recording
+   - Post-write summary: "Language: de | Skills: 10 | Experience: 1 | Languages extracted: 2"
+
+8. **Tests** (`tests/test_german_i18n.py`)
+   - 36 new tests: language detection, German section patterns, language extraction, German skills, German phone, usage history, NER routing
+
+---
+
+## Test Status
+
 ```
-8421264 ponytail: Cycle 2 cleanup (180 lines removed) + scorer substring fix
-29ae89d fix: deal-breaker substring matching false positives (Cycle 2)
-6813680 audit: multi-model review fixes (3 reviewers)
-b789f86 refactor: extract shared scoring pipeline (score_one_job)
-7ef3652 audit: Phase 4 ponytail + correctness fixes
-6633341 feat: Phase 4 — austria-job-scout integration
+108 passed, 0 failed, 2 skipped
 ```
 
-### Test Coverage
-- **Total:** 72 tests (was 19 at Phase 1, 57 at Phase 4 ship)
-- **Files:** `tests/test_smoke.py` (smoke tests), `tests/test_scout_adapter.py` (integration + regression)
-- **Run:** `cd ~/projects/cv-profile-assessment && source venv/bin/activate && python -m pytest tests/ -q`
+Test count progression: 19 → 57 → 65 → 72 → **108**
 
 ---
 
-## Multi-Cycle Audit Summary
+## Real CV Reprocessing Result
 
-### Cycle 1: Self-Review + Ponytail
-- **Findings:** 10 issues (6 dead code, 4 bugs)
-- **Fixed:** Commit 7ef3652
-- **Key fix:** N+1 performance regression in `match_all_profiles_to_jobs()`
+Source: `Matthias_K_FlowCV_Resume_2026-06-29.pdf` (FlowCV two-column layout, 126 KB)
 
-### Cycle 2: Deep Correctness + Ponytail
-- **Findings:** 3 correctness bugs (all HIGH severity)
-- **Fixed:** Commits 29ae89d + 8421264
-- **Key fixes:**
-  1. Deal-breaker substring false positives (`'java'` blocked `'JavaScript'`)
-  2. Scorer substring false positives (`'r'` matched `'react'`)
-  3. 180 lines dead code removed (__main__ blocks, Phase 2 stubs)
-
-### Cycle 3: Verification
-- **Ad-hoc verification:** 4/4 checks passed
-  - pytest: 72/72 pass
-  - Deal-breaker: `'java'` ≠ `'javascript'` ✓
-  - Scorer: `'r'` ≠ `'react'` ✓
-  - No `__main__` blocks in library files ✓
+**Phase 4 output**: name "Matthias K.\nÖsterreich", location {}, languages [], skills: 2 (oracle, r)
+**Phase 5 output**:
+- Language: de
+- Name: "Matthias K."
+- Location: {city: "Wien", country: "Austria"}
+- Languages: [{language: "German", fluency: "native"}, {language: "Hungarian", fluency: "fluent"}]
+- Skills: 10 (SAP, MS Office, Microsoft CRM, Oracle, Oracle CRM, plus 4 German soft skills)
+- Experience: 1 entry (entire career lumped — see Phase 5.1 below)
 
 ---
 
-## Key Files & Architecture
+## Known Limitations / Phase 5.1 Candidates
 
-### Core Modules
-| Module | Purpose | Key Functions |
-|--------|---------|---------------|
-| `parser/*.py` | CV parsing (PDF/DOCX) | `extract_text_from_pdf`, `extract_entities`, `extract_skills` |
-| `profile_builder_pkg/*.py` | Profile validation | `build_profile_from_cv`, `validate_profile` (jsonschema) |
-| `matching/deal_breakers.py` | Hard constraints | `check_deal_breakers` (word-boundary regex) |
-| `matching/scorer.py` | Weighted scoring | `score_required_skills`, `score_experience`, `compute_overall_score` |
-| `matching/pipeline.py` | Batch matching | `score_one_job` (single source of truth) |
-| `matching/tfidf_matcher.py` | Keyword similarity | `compute_keyword_similarity` (sklearn TfidfVectorizer) |
-| `integration/scout_adapter.py` | Austria-job-scout DB | `load_jobs_from_scout_db`, `adapt_austria_jobs_row` |
+### Priority 1: FlowCV 2-column PDF layout
+**Problem**: FlowCV renders left+right column concurrently; pdfminer.six reads top-to-bottom across both columns, scrambling the year+company block. This is why all 13 positions land in one entry.
 
-### Sample Data
-- `data/sample_profiles/sarah_chen.json` — Python backend engineer
-- `data/sample_profiles/marcus_weber.json` — DevOps engineer
-- `tests/fixtures/scout_schema.sql` — Scout DB schema (copied from upstream)
+**Options to evaluate (spike needed)**:
+- **pdfplumber**: layout-aware via word positions, has a CropFilter for columns. Mid-complexity.
+- **PyMuPDF (fitz)**: best layout preservation, supports redaction, headers, etc. Native ARM64 build availability needs checking.
+- **pdfminer.six with custom LAParams**: can detect column gutters from word positions. High effort.
 
-### CLI Scripts
-- `scripts/parse_cv.py` — Parse CV → profile JSON
-- `scripts/match_jobs.py` — Match profile against job directory
-- `scripts/match_scout_jobs.py` — Match profile against Scout DB
-- `scripts/seed_scout_db_from_samples.py` — Seed Scout DB with sample profiles
+**Recommendation**: pdfplumber — adds ~3MB dependency, has column detection primitives, well-maintained.
 
----
+### Priority 2: Profile diff feature (usage history subset)
+Show side-by-side comparison of profile after re-processing the same source — useful for measuring skill-taxonomy improvements over time. Marked in plan but not yet built.
 
-## Known Issues / Future Work
+### Priority 3: Sophisticated experience parsing
+Build real experience-entry extraction (not `\n\n` grouping). Each block has clear structure:
+- Date range (en dash separator)
+- Postal code + city
+- Company name + role category
+- Bullet list of duties
 
-### Phase 2 (Planned)
-- ESCO skills integration (`load_esco_skills()` stub was deleted — re-add when Phase 2 arrives)
-- IndexedJob support (`adapt_indexed_job()` exists but untested — no production caller yet)
-
-### Technical Debt
-1. **Date extraction:** `DATE_PATTERN` constant was removed (unused). Entity extractor parses dates but doesn't use the pattern.
-2. **Validation:** `validator.py` has `_minimal_validation()` fallback for missing jsonschema — but jsonschema is a hard dependency. Confirm and delete if dead.
-3. **Weights param:** `compute_overall_score(weights=None)` — never called with custom weights. Could simplify signature.
-
-### Test Gaps
-- `adapt_indexed_job()` — zero test coverage (Phase 2 feature)
-- `load_esco_skills()` — zero coverage (Phase 2 feature)
-- CLI exit codes — not tested (0-4 ranges documented but untested)
+Needs regex / spaCy-rule-based / few-shot-LLM decision.
 
 ---
 
-## Common Commands
+## Resume / Profile Artifacts
 
-### Run Tests
+Working CV-derived profile (verbatim from session):
+
+### Concise (German) profile
+A condensed factual listing of capabilities and accomplishments, useful as CV-basis input. Stored in Mnemosyne under ID listed below.
+
+### Labor profile (Arbeitskraftprofil)
+A wider net: statt nur Stationen auflisten, leitet aus jeder Tätigkeit die Tätigkeitsbeschreibung ab und benennt Branchen und Rollen, in denen die Erfahrung verwertbar ist. Includes "Verwertbar für" callouts per skill area (B2B-Vertrieb, Online-Marketing, Recruiting, IT-Support, Schulung/Beratung). Stored in Mnemosyne under ID listed below.
+
+---
+
+## Quickstart for Fresh Session
+
 ```bash
 cd ~/projects/cv-profile-assessment
 source venv/bin/activate
-python -m pytest tests/ -v          # Verbose
-python -m pytest tests/ -q          # Quiet
-python -m pytest tests/ -k deal     # Filter by keyword
+python -m pytest tests/ -q            # expect 108 passed, 2 skipped
+python scripts/parse_cv.py --history  # see last runs
+python scripts/parse_cv.py "/home/hermes-pi/Sync/shared/Matthias_K_FlowCV_Resume_2026-06-29.pdf" -o /tmp/profile.json
 ```
 
-### Match Profile Against Jobs
+### Resume work: Phase 5.1 FlowCV layout
+
+Pre-work:
+1. Spike pdfplumber on the Matthias CV — does it preserve column structure?
+2. If yes, integrate `pdf_extractor.py` to use pdfplumber for layout-aware extraction
+3. Re-run, verify experience splits into 13 entries (or close)
+
+### Resume work: Profile diff feature
+
+1. Add `diff_profile(jsonl_path, source_key)` to `usage_history.py`
+2. Wire to `parse_cv.py --diff <source>`
+3. Add tests
+
+---
+
+## Mnemosyne Persistence
+
+The German labor profile and concise profile are stored in Mnemosyne with these exact IDs:
+- (See mnemosyne_remember calls — IDs returned after each call)
+
+To recall in a fresh session, use `mnemosyne_recall(query="Matthias K. profile")` or query by Mnemosyne ID directly.
+
+---
+
+## Wiki Locations
+
+- `wiki/DEVELOPMENT_LOG.md` — 2026-06-29 first real CV test + i18n gap inventory
+- `wiki/FRESH-SESSION-CONTINUATION.md` — this file
+- Phase 4 references: `wiki/audits/cv-profile-assessment-full-audit-2026-06-26.md`
+
+---
+
+## Pitfalls & Conventions
+
+- **Don't change proficiency default**: kept "advanced" to preserve Phase 1 scoring behavior. The "intermediate" change broke a regression test (scorer at 0.6 vs 0.7 threshold).
+- **Don't rename `profile_builder_pkg/`**: it was renamed from `profile/` because the stdlib `profile` module shadowed it (caused spaCy `cProfile` import failure — documented as a Phase 2 audit lesson).
+- **Word-boundary regex**: use `(?<![a-z0-9])`/`(?![a-z0-9])`, NOT `\b`. `\b` fails for tokens ending in non-word chars (`c++`, `.NET`, `node.js`).
+- **DE spaCy loading**: `de_core_news_sm` is downloaded via `python -m spacy download de_core_news_sm` (already installed on this Pi as of 2026-06-29).
+- **JSON Schema languages field**: requires `[{language, fluency}]` objects, not flat strings.
+- **Test runner**: must `source venv/bin/activate` before pytest. pytest auto-discovers tests/, but the venv has spacy + en/de models pre-installed.
+
+---
+
+## Resume Commands Cheat Sheet
+
 ```bash
-# Against job directory
-python scripts/match_jobs.py data/sample_profiles/sarah_chen.json data/jobs/
+# Process any CV
+python scripts/parse_cv.py <path/to/cv.pdf> -o /tmp/out.json
 
-# Against Scout DB
-python scripts/match_scout_jobs.py data/sample_profiles/sarah_chen.json /path/to/scout.db
+# See history
+python scripts/parse_cv.py --history
+
+# Skip logging (for repeated dry-runs)
+python scripts/parse_cv.py <path> --no-log
+
+# Run all tests
+python -m pytest tests/ -q
+
+# Run only German tests
+python -m pytest tests/test_german_i18n.py -v
+
+# Run only smoke tests
+python -m pytest tests/test_smoke.py -v
 ```
-
-### Parse CV
-```bash
-python scripts/parse_cv.py /path/to/cv.pdf --output profile.json
-```
-
-### Git Workflow
-```bash
-cd ~/projects/cv-profile-assessment
-git status
-git add <files>
-git commit -m "type: description"
-git push origin master
-```
-
----
-
-## Patterns & Pitfalls
-
-### Word-Boundary Matching (Critical Pattern)
-When matching tokens that may contain non-word characters (like `'c++'`), use:
-```python
-pattern = r"(?<![a-z0-9])" + re.escape(token) + r"(?![a-z0-9])"
-```
-**NOT** `\b...\b` — it fails for tokens ending in non-word chars.
-
-**Applied in:**
-- `matching/deal_breakers.py:44` — deal-breaker filtering
-- `matching/scorer.py:55` — partial skill matching
-
-### N+1 Prevention
-Precompute shared state outside loops:
-```python
-# WRONG: rebuilds set every iteration
-for job in jobs:
-    profile_skills = {s["name"] for s in profile["skills"]}
-    ...
-
-# CORRECT: compute once
-profile_skills = {s["name"] for s in profile["skills"]}
-for job in jobs:
-    ...
-```
-
-### Malformed Data Safety
-Always guard against missing keys in profile/job dicts:
-```python
-# WRONG: KeyError if skill has no "name"
-{s["name"].lower() for s in profile.get("skills", [])}
-
-# CORRECT: filter out malformed entries
-{s["name"].lower() for s in profile.get("skills", []) if "name" in s}
-```
-
----
-
-## Wiki Documentation
-
-- **Full audit report:** `~/.wiki/audits/cv-profile-assessment-full-audit-2026-06-26.md`
-- **Session continuity:** `~/projects/cv-profile-assessment/wiki/CONTINUITY.md`
-
----
-
-## Resuming Work
-
-### To Continue the Audit
-If asked to "continue the cv-profile-assessment audit":
-1. Read this file for context
-2. Read the full audit report (~/.wiki/audits/...)
-3. Check if new code has been added since 8421264
-4. If yes: run another audit cycle (3 reviewers + ponytail)
-5. If no: task is complete, verify nothing regressed
-
-### To Add New Features
-1. **Phase 2 (ESCO integration):**
-   - Re-add `load_esco_skills()` in `parser/skill_extractor.py`
-   - Implement ESCO CSV/JSON parsing
-   - Wire into `score_required_skills` for URI matching
-   - Add tests
-
-2. **IndexedJob support:**
-   - Add tests for `adapt_indexed_job()`
-   - Decide if production path is needed (currently only tested with mocks)
-
-### To Run a Fresh Audit Cycle
-1. Pack source: `repomix --output /tmp/cv-profile-packed.xml`
-2. Dispatch 3 subagents (correctness, robustness, ponytail)
-3. Run OCR: `ocr scan . --output /tmp/ocr-cv.md`
-4. Triage findings, fix, test, commit, push
-5. Update wiki audit doc
-
----
-
-## Environment
-
-- **Python:** 3.11 (venv at `~/projects/cv-profile-assessment/venv`)
-- **Key deps:** pdfminer.six, python-docx, spacy, scikit-learn, jsonschema
-- **Test framework:** pytest
-- **Lint:** No linter configured (audit used OCR + manual review)
-
----
-
-## Contact / Context
-
-- **User preferences:** Autonomous execution, no sub-step confirmations. "continue" = self-review then proceed.
-- **GitHub lifecycle:** assess → fix → commit → push → save-and-file (for ether-btc/* repos)
-- **Memory:** Audit summary stored in Mnemosyne (memory_id: 0a0e723652b6229b)
-
----
-
-**End of continuation reference.** For questions about specific code paths, grep the source or run the verification script from the audit.
