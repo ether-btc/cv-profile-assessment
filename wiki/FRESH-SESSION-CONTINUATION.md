@@ -186,13 +186,16 @@ cd tests && /home/hermes-pi/projects/cv-profile-assessment/venv/bin/python -m py
 Phase 5 + Phase 6 status: stored as Mnemosyne memories with IDs:
 - (see Phase 5 record for cv-profile-assessment status)
 - (see Phase 6 record for scout-integration status)
+- 483cd74c4c263521 — Phase 6 3-cycle audit summary (Cycle 1 = correctness/security, Cycle 2 = efficiency/quality, Cycle 3 = e2e runtime; 136/138 tests green)
+- eb12f22133e83fe9 — Audit self-prompt (reusable for future reviews)
 
-Recall: `mnemosyne_recall(query="cv-profile-assessment Phase 6 bias filter")`
+Recall: `mnemosyne_recall(query="cv-profile-assessment Phase 6 bias filter")` or `mnemosyne_recall(query="Phase 6 audit cycle")`.
 
 ---
 
 ## See Also
 
 - `wiki/DEVELOPMENT_LOG.md` — 2026-06-29 first real CV test + Phase 5 gap inventory
+- `wiki/audits/cv-profile-assessment-phase6-audit-2026-06-29.md` — 3-cycle Phase-6 audit (correctness → efficiency → e2e)
 - `~/projects/austria-job-scout/AUDIT_REPORT_2026-06-23.md` — pre-Phase-6 audit baseline
 - `~/projects/cv-profile-assessment/development_log.md` (if exists) — pre-Phase-5 history
