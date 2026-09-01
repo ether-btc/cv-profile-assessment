@@ -10,6 +10,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, List, Optional
+from uuid import uuid4
 
 
 DEFAULT_LOG_PATH = Path(__file__).parent.parent / "data" / "processing_history.jsonl"
@@ -26,6 +27,7 @@ def log_processing_run(
     language: str = "",
     warnings: Optional[List[str]] = None,
     log_path: Optional[Path] = None,
+    profile_id: Optional[str] = None,
 ) -> Dict:
     """Append a processing run record to the JSONL log.
 
@@ -35,12 +37,19 @@ def log_processing_run(
         language: Detected language code (e.g. "de", "en").
         warnings: Optional list of warning messages.
         log_path: Override log file path.
+        profile_id: Stable per-profile identifier. Defaults to a fresh UUID
+            so each run is collision-free and traceable (mirrors the
+            reference repo's ``resume:${uuid}`` keying pattern). Pass a
+            fixed id to group re-runs of the same CV under one key.
 
     Returns:
         The record dict that was logged.
     """
     log_path = log_path or DEFAULT_LOG_PATH
     log_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if profile_id is None:
+        profile_id = str(uuid4())
 
     sections_found = []
     if "skills" in profile and profile["skills"]:
@@ -53,6 +62,7 @@ def log_processing_run(
         sections_found.append("certifications")
 
     record = {
+        "profile_id": profile_id,
         "timestamp": _now_iso(),
         "source": source_path,
         "language": language,
@@ -72,6 +82,27 @@ def log_processing_run(
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     return record
+
+
+def wipe_history(log_path: Optional[Path] = None) -> int:
+    """Delete the processing-history log file.
+
+    Mirrors the reference repo's ``/wipe`` route: a single, explicit
+    recovery action that clears all locally-stored run data. Returns the
+    number of bytes that were removed (0 if the file did not exist).
+
+    Args:
+        log_path: Override log file path.
+
+    Returns:
+        Bytes freed (size of the deleted file), or 0 if nothing deleted.
+    """
+    log_path = log_path or DEFAULT_LOG_PATH
+    if not log_path.exists():
+        return 0
+    size = log_path.stat().st_size
+    log_path.unlink()
+    return size
 
 
 def read_history(log_path: Optional[Path] = None) -> List[Dict]:

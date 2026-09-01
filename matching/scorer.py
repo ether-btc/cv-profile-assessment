@@ -31,6 +31,29 @@ DEFAULT_WEIGHTS: Dict[str, float] = {
 }
 
 
+# Verdict bands (0-100 → label). Mirrors ai-job-search's rank.md bands.
+_SCORE_BANDS: list[tuple[int, str]] = [
+    (75, "Strong Fit"),
+    (60, "Good Fit"),
+    (45, "Moderate Fit"),
+    (30, "Weak Fit"),
+    (0, "Poor Fit"),
+]
+
+
+def band_for_score(score: float) -> str:
+    """Map a 0-100 score to a verdict band.
+
+    Bands mirror ai-job-search's rank.md: Strong 75+, Good 60-74,
+    Moderate 45-59, Weak 30-44, Poor <30.
+    """
+    s = int(round(score))
+    for threshold, band in _SCORE_BANDS:
+        if s >= threshold:
+            return band
+    return "Poor Fit"
+
+
 def score_required_skills(profile: Dict, job: Dict) -> float:
     """Score 0.0-1.0: how well profile skills cover required job skills.
 

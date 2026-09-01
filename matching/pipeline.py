@@ -23,8 +23,11 @@ if TYPE_CHECKING:
     from cv_profile_assessment.types import PersonalProfile, Job
 
 from .deal_breakers import check_deal_breakers  # noqa: E402
+from .gates import run_gates  # noqa: E402
 from .scorer import (  # noqa: E402
     DEFAULT_WEIGHTS,
+    PROFICIENCY_WEIGHT,
+    band_for_score,
     _calculate_years_experience,
     compute_overall_score,
     score_experience,
@@ -32,6 +35,8 @@ from .scorer import (  # noqa: E402
     score_required_skills,
 )
 from .tfidf_matcher import compute_tfidf_similarity  # noqa: E402
+from .feedback_schema import build_feedback_dict  # noqa: E402
+from .tips import generate_tips  # noqa: E402
 
 # Runtime import (after sys.path modification)
 from cv_profile_assessment.types import PersonalProfile, Job  # noqa: E402
@@ -71,6 +76,19 @@ def score_one_job(
     # Stage 1: Hard filter — deal-breakers
     passes, db_reason = check_deal_breakers(profile, job)
     if not passes:
+        gates = run_gates(profile, job)
+        tips = generate_tips(
+            profile=profile, job=job,
+            component_scores={"required_skills": 0.0, "experience": 0.0,
+                              "preferred": 0.0, "keyword_tfidf": 0.0},
+            blocked=True, block_reason=db_reason,
+        )
+        feedback = build_feedback_dict(
+            component_scores={"required_skills": 0.0, "experience": 0.0,
+                              "preferred": 0.0, "keyword_tfidf": 0.0},
+            tips_by_dimension=tips, blocked=True, block_reason=db_reason,
+            overall_score=0.0, gates=gates, verdict="Poor Fit",
+        )
         return {
             "job_title": job.get("title", "Unknown"),
             "company": job.get("company", "Unknown"),
@@ -78,6 +96,7 @@ def score_one_job(
             "blocked": True,
             "block_reason": db_reason,
             "url": source.get("url"),
+            "feedback": feedback,
         }
 
     # Lazy-compute profile-only values if not precomputed
@@ -95,6 +114,30 @@ def score_one_job(
     # Stage 3: Weighted overall
     overall = compute_overall_score(req, exp, pref, kw)
 
+    # Stage 4: Explainable feedback (rubric + tips) — no LLM, deterministic.
+    gates = run_gates(profile, job)
+    tips = generate_tips(
+        profile=profile, job=job,
+        component_scores={
+            "required_skills": req, "experience": exp,
+            "preferred": pref, "keyword_tfidf": kw,
+        },
+        candidate_years=candidate_years,
+        profile_skill_names=profile_skill_names,
+    )
+    verdict = band_for_score(overall * 100)
+    overall_blocked_by_gate = any(
+        g.get("verdict") == "FAIL" for g in gates.values()
+    )
+    feedback = build_feedback_dict(
+        component_scores={
+            "required_skills": req, "experience": exp,
+            "preferred": pref, "keyword_tfidf": kw,
+        },
+        tips_by_dimension=tips, overall_score=overall,
+        gates=gates, verdict=verdict,
+    )
+
     return {
         "job_title": job.get("title", "Unknown"),
         "company": job.get("company", "Unknown"),
@@ -103,13 +146,16 @@ def score_one_job(
         "url": source.get("url"),
         "ats": source.get("ats"),
         "overall_score": overall,
-        "blocked": False,
+        "verdict": verdict,
+        "blocked": overall_blocked_by_gate,
+        "gates": gates,
         "component_scores": {
             "required_skills": round(req, 4),
             "experience": round(exp, 4),
             "preferred": round(pref, 4),
             "keyword_tfidf": round(kw, 4),
         },
+        "feedback": feedback,
         "weights": DEFAULT_WEIGHTS,
     }
 

@@ -92,7 +92,7 @@ def render_pdf(match_json_path: Path, output_pdf_path: Path,
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
     pdf.output(str(output_pdf_path))
     print(f"PDF written to {output_pdf_path} ({rendered} job pages)")
-    return 0
+    return rendered
 
 
 def _render_job_page(pdf, job: dict, section_title: str) -> None:
@@ -156,6 +156,46 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
             pdf.cell(0, 5, _safe_pdf_text(f"BLOCKED (deal-breaker): {job.get('block_reason','')}"),
                      new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(0, 0, 0)
+        # Verdict band (from ai-job-search-style scoring)
+        if job.get("verdict"):
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(0, 5, _safe_pdf_text(f"Verdict: {job['verdict']}"),
+                     new_x="LMARGIN", new_y="NEXT")
+        pdf.ln(3)
+
+    # Feedback (explainable tips) — rendered when present.
+    fb = job.get("feedback")
+    if isinstance(fb, dict):
+        pdf.set_font("Helvetica", "B", 11)
+        pdf.cell(0, 6, _safe_pdf_text("Feedback"), new_x="LMARGIN", new_y="NEXT")
+        for dim_key in ("ATS", "toneAndStyle", "content", "structure", "skills"):
+            dim = fb.get(dim_key)
+            if not isinstance(dim, dict):
+                continue
+            label = dim_key
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(0, 5, _safe_pdf_text(f"  {label}: {dim.get('score', 0)}/100"),
+                     new_x="LMARGIN", new_y="NEXT")
+            pdf.set_font("Helvetica", "", 9)
+            for tip in dim.get("tips", []):
+                icon = "OK " if tip.get("type") == "good" else "!  "
+                line = f"    {icon}{tip.get('tip', '')}"
+                if tip.get("explanation"):
+                    line += f" — {tip['explanation']}"
+                pdf.multi_cell(0, 4, _safe_pdf_text(line))
+        # Gate results (eligibility / language), if any.
+        for gate_name in ("eligibility_gate", "language_gate"):
+            gate = fb.get(gate_name)
+            if isinstance(gate, dict):
+                verdict = gate.get("verdict", "PASS")
+                note = gate.get("note", "")
+                if verdict != "PASS" or note:
+                    pdf.set_font("Helvetica", "B", 9)
+                    color = (150, 90, 0) if verdict == "FLAG" else (180, 30, 30)
+                    pdf.set_text_color(*color)
+                    pdf.cell(0, 5, _safe_pdf_text(f"  {gate_name}: {verdict} — {note}"),
+                             new_x="LMARGIN", new_y="NEXT")
+                    pdf.set_text_color(0, 0, 0)
         pdf.ln(3)
 
     # URL (so user can click from PDF reader)
