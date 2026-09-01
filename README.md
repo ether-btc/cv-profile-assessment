@@ -2,7 +2,13 @@
 
 Privacy-focused CV/resume parser and job-candidate matching engine for the Austrian/EU job market. 100% local execution on Raspberry Pi 5 (ARM64, 8GB RAM). Synergizes with the [austria-job-scout](https://github.com/ether-btc/austria-job-scout) project.
 
-**Status: Phase 4 shipped 2026-06-25** — 57/57 tests pass; live integration with austria-job-scout SQLite DB.
+**Status: Phase 4 shipped 2026-06-25** — 178/178 tests pass; live integration with austria-job-scout SQLite DB.
+
+**Phase 5–6 (2026-09):** Absorbiert was nützlich ist aus `adrianhajdin/ai-resume-analyzer`:
+- **ATS-Dokument-Checks** (`parser/ats_check.py`) — bewertet wirklich, *wie gut ein ATS die Bewerbung parsen kann* (Überschriften, Kontaktdaten, Datumsformate, Textschicht, Spalten), *unabhängig vom Job*. Berechnet beim Parsen einmalig, gepeichert in `profile.metadata.ats_parse_safety`.
+- **Fünfdimensionale Feedback-Rubrik** (ATS, Skills, Content, Tone & Style, Structure) mit deterministischen good/improve Tips — ohne LLM, komplett erklärbar.
+- **Strukturierter Prompt-Baustein** (`matching/prompts.py`) — das `AIResponseFormat`-Muster aus der Referenz, invertiert: die Scores werden *zugeführt* als Fakten, nicht vom Modell erfunden.
+- **PDF→Bild-Renderer** (`parser/pdf_renderer.py`, PyMuFit) für Visuelleinschätzung.
 
 ## Quickstart
 

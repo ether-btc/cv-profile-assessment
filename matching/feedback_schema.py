@@ -94,6 +94,7 @@ def build_feedback_dict(
     overall_score: float | None = None,
     gates: dict[str, dict[str, str]] | None = None,
     verdict: str | None = None,
+    ats_parse_score: int | None = None,
 ) -> dict[str, Any]:
     """Assemble a Feedback-shaped dict from our pipeline outputs.
 
@@ -110,6 +111,11 @@ def build_feedback_dict(
             need entries.
         blocked: if True, the job failed a deal-breaker filter.
         block_reason: human-readable reason when blocked.
+        ats_parse_score: real ATS parse-safety score (0-100) from
+            parser.ats_check.check_ats_parse_safety. Job-independent — it
+            grades the CV document itself (section headings, contact
+            findability, date parseability, text-layer density, columns).
+            When omitted, ATS degrades to the old keyword-overlap proxy.
         overall_score: pre-computed 0–1 score (from compute_overall_score);
             if None, we compute it from component_scores + DIMENSION_WEIGHTS.
 
@@ -140,12 +146,18 @@ def build_feedback_dict(
         )
     )
 
-    # ATS: keyword coverage is the closest proxy to ATS-friendliness.
-    # Our deal_breakers already act as an ATS-style filter; if blocked,
-    # ATS score reflects the blocker.
-    ats_score = keyword_score
-    if blocked:
-        ats_score = max(0, keyword_score - 20)
+    # ATS: parse-safety of the *document*, not job-keyword overlap.
+    # When the caller supplies a real parse-safety score (from
+    # parser.ats_check.check_ats_parse_safety) we use it directly — it is
+    # job-independent by design, which is what "ATS score" actually means.
+    # Falling back to keyword overlap is a last resort for callers that have
+    # no access to the source document (e.g. scoring pre-parsed profiles).
+    if ats_parse_score is not None:
+        ats_score = int(ats_parse_score)
+    else:
+        ats_score = keyword_score
+        if blocked:
+            ats_score = max(0, keyword_score - 20)
 
     # Overall score
     if overall_score is None:

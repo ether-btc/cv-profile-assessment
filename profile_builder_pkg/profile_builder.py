@@ -20,6 +20,7 @@ from parser import (
     segment_sections,
     extract_entities,
     extract_skills,
+    check_ats_parse_safety,
 )
 from cv_profile_assessment import detect_language, log_processing_run
 
@@ -67,6 +68,15 @@ def build_profile_from_cv(cv_path: str, log: bool = True) -> Dict:
     # Step 4: Extract skills
     skills = extract_skills(text, sections)
 
+    # Step 4b: ATS parse-safety of the source document.
+    # Job-independent, so it is computed once here at parse time rather than
+    # per job in the matcher. Only PDFs get the geometry checks.
+    ats = check_ats_parse_safety(
+        raw_text=text,
+        sections=sections,
+        pdf_path=cv_path if suffix == ".pdf" else None,
+    )
+
     # Step 5: Build profile dict
     now = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
     profile = {
@@ -94,6 +104,11 @@ def build_profile_from_cv(cv_path: str, log: bool = True) -> Dict:
             "last_updated": now,
             "source": cv_path,
             "language": language,
+            "ats_parse_safety": {
+                "score": ats["score"],
+                "checks": ats["checks"],
+                "tips": ats["tips"],
+            },
             "confidence_scores": {
                 "skills_extraction": _skills_confidence(skills, sections),
                 "esco_mapping": 0.0,

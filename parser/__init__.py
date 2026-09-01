@@ -8,6 +8,7 @@ from .docx_extractor import extract_text_from_docx
 from .section_segmenter import segment_sections
 from .entity_extractor import extract_entities
 from .skill_extractor import extract_skills
+from .ats_check import check_ats_parse_safety
 
 __version__ = "0.1.0"
 __all__ = [
@@ -16,4 +17,5 @@ __all__ = [
     "segment_sections",
     "extract_entities",
     "extract_skills",
+    "check_ats_parse_safety",
 ]

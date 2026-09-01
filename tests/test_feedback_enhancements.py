@@ -73,6 +73,22 @@ class TestFeedbackWiredIntoPipeline:
         # feedback_to_text resolves casing; the stored key is uppercase "ATS".
         assert "ATS" in result["feedback"]
 
+    def test_ats_score_is_document_property_not_keyword_overlap(self, senior_profile):
+        """Regression: ATS must be stable across jobs and equal to the profile's
+        ats_parse_safety score — not the per-job keyword overlap."""
+        ats_meta = senior_profile["metadata"]["ats_parse_safety"]
+        jobs = [
+            json.loads((SAMPLE_JOBS / "senior_backend_vienna.json").read_text()),
+            json.loads((SAMPLE_JOBS / "nlp_research_zurich.json").read_text()),
+        ]
+        scores = {score_one_job(senior_profile, j)["feedback"]["ATS"]["score"]
+                  for j in jobs}
+        # Identical ATS for the same document against two different jobs.
+        assert len(scores) == 1
+        # And it must equal the value computed at parse time.
+        assert scores.pop() == ats_meta["score"]
+
+
 
 class TestTipsAreExplainable:
     """Tips must name concrete missing skills, not be generic placeholders."""

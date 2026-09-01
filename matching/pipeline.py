@@ -73,6 +73,13 @@ def score_one_job(
     
     source = job.get("_source") or {}
 
+    # ATS parse-safety travels with the profile (computed once at parse time in
+    # build_profile_from_cv). It grades the CV document, not this job, so it is
+    # reused unchanged for every job scored against this profile.
+    _ats_meta = (profile.get("metadata") or {}).get("ats_parse_safety") or {}
+    ats_parse_score = _ats_meta.get("score")
+    ats_parse_tips = _ats_meta.get("tips") or []
+
     # Stage 1: Hard filter — deal-breakers
     passes, db_reason = check_deal_breakers(profile, job)
     if not passes:
@@ -88,6 +95,7 @@ def score_one_job(
                               "preferred": 0.0, "keyword_tfidf": 0.0},
             tips_by_dimension=tips, blocked=True, block_reason=db_reason,
             overall_score=0.0, gates=gates, verdict="Poor Fit",
+            ats_parse_score=ats_parse_score,
         )
         return {
             "job_title": job.get("title", "Unknown"),
@@ -126,6 +134,10 @@ def score_one_job(
         profile_skill_names=profile_skill_names,
     )
     verdict = band_for_score(overall * 100)
+    # Document-level ATS findings belong in the ATS dimension. They come from
+    # the CV itself, so they are prepended ahead of the job-relative tips.
+    if ats_parse_tips:
+        tips["ats"] = list(ats_parse_tips) + tips.get("ats", [])
     overall_blocked_by_gate = any(
         g.get("verdict") == "FAIL" for g in gates.values()
     )
@@ -136,6 +148,7 @@ def score_one_job(
         },
         tips_by_dimension=tips, overall_score=overall,
         gates=gates, verdict=verdict,
+        ats_parse_score=ats_parse_score,
     )
 
     return {

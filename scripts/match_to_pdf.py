@@ -86,7 +86,7 @@ def render_pdf(match_json_path: Path, output_pdf_path: Path,
         pdf.multi_cell(0, 6, _safe_pdf_text(
             f"match_scout_jobs reported 0 jobs in any bucket. "
             f"summary={summary}"
-        ))
+        ), new_x="LMARGIN", new_y="NEXT")
         rendered = 1
 
     output_pdf_path.parent.mkdir(parents=True, exist_ok=True)
@@ -100,7 +100,8 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
 
     # Title
     pdf.set_font("Helvetica", "B", 16)
-    pdf.multi_cell(0, 8, _safe_pdf_text(job.get("job_title", "Unknown title")))
+    pdf.multi_cell(0, 8, _safe_pdf_text(job.get("job_title", "Unknown title")),
+                   new_x="LMARGIN", new_y="NEXT")
     pdf.ln(1)
 
     # Company / Location
@@ -112,7 +113,8 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
         meta_bits.append(job["location"])
     if meta_bits:
         pdf.set_text_color(80, 80, 80)
-        pdf.multi_cell(0, 6, _safe_pdf_text(" · ".join(meta_bits)))
+        pdf.multi_cell(0, 6, _safe_pdf_text(" · ".join(meta_bits)),
+                       new_x="LMARGIN", new_y="NEXT")
         pdf.set_text_color(0, 0, 0)
     pdf.ln(2)
 
@@ -157,10 +159,13 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
                      new_x="LMARGIN", new_y="NEXT")
             pdf.set_text_color(0, 0, 0)
         # Verdict band (from ai-job-search-style scoring)
-        if job.get("verdict"):
+        verdict = job.get("verdict")
+        if verdict and not job.get("blocked"):
             pdf.set_font("Helvetica", "B", 10)
-            pdf.cell(0, 5, _safe_pdf_text(f"Verdict: {job['verdict']}"),
+            pdf.set_text_color(0, 100, 0)
+            pdf.cell(0, 5, _safe_pdf_text(f"Verdict: {verdict}"),
                      new_x="LMARGIN", new_y="NEXT")
+            pdf.set_text_color(0, 0, 0)
         pdf.ln(3)
 
     # Feedback (explainable tips) — rendered when present.
@@ -182,7 +187,8 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
                 line = f"    {icon}{tip.get('tip', '')}"
                 if tip.get("explanation"):
                     line += f" — {tip['explanation']}"
-                pdf.multi_cell(0, 4, _safe_pdf_text(line))
+                pdf.multi_cell(0, 4, _safe_pdf_text(line),
+                               new_x="LMARGIN", new_y="NEXT")
         # Gate results (eligibility / language), if any.
         for gate_name in ("eligibility_gate", "language_gate"):
             gate = fb.get(gate_name)
@@ -202,7 +208,8 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
     if job.get("url"):
         pdf.set_font("Helvetica", "I", 9)
         pdf.set_text_color(40, 80, 160)
-        pdf.multi_cell(0, 5, _safe_pdf_text(f"Source: {job['url']}"))
+        pdf.multi_cell(0, 5, _safe_pdf_text(f"Source: {job['url']}"),
+                       new_x="LMARGIN", new_y="NEXT")
         pdf.set_text_color(0, 0, 0)
         pdf.ln(2)
 
@@ -214,7 +221,8 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
         pdf.set_font("Helvetica", "", 10)
         # Truncate to keep page count manageable
         desc = desc if len(desc) <= 1800 else desc[:1800] + "…[truncated]"
-        pdf.multi_cell(0, 5, _safe_pdf_text(desc))
+        pdf.multi_cell(0, 5, _safe_pdf_text(desc),
+                       new_x="LMARGIN", new_y="NEXT")
     else:
         # Excluded jobs sometimes don't carry description; show whatever we have
         reqs = job.get("required_skills") or []
@@ -222,7 +230,8 @@ def _render_job_page(pdf, job: dict, section_title: str) -> None:
             pdf.set_font("Helvetica", "B", 11)
             pdf.cell(0, 6, _safe_pdf_text("Required skills"), new_x="LMARGIN", new_y="NEXT")
             pdf.set_font("Helvetica", "", 10)
-            pdf.multi_cell(0, 5, _safe_pdf_text(", ".join(reqs)))
+            pdf.multi_cell(0, 5, _safe_pdf_text(", ".join(reqs)),
+                           new_x="LMARGIN", new_y="NEXT")
 
 
 def main() -> int:

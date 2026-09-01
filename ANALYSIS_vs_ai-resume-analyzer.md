@@ -123,7 +123,7 @@ While we don't have a UI, the **separation of concerns** is instructive: each sc
 
 ## 4. Concrete Improvements to Adopt
 
-### Priority 1 — Structured Feedback Prompt Module (mirrors `constants/index.ts`)
+### Priority 1 — Structured Feedback Prompt Module (mirrors `constants/index.ts`) — ✅ DONE
 
 Create `constants/prompts.py` with:
 - `FEEDBACK_SCHEMA` — the 5-dimension schema (ATS, Tone & Style, Content, Structure, Skills) as a Python dict/string
@@ -132,7 +132,7 @@ Create `constants/prompts.py` with:
 
 This directly ports the **single most valuable pattern** from the reference repo: the structured rubric + prompt template.
 
-### Priority 2 — Human-Readable Tip Generation from Existing Scores
+### Priority 2 — Human-Readable Tip Generation from Existing Scores — ✅ DONE
 
 Extend `score_one_job()` in `matching/pipeline.py` to generate tips from deal-breaker and skill-match results, using the reference format:
 ```python
@@ -142,11 +142,39 @@ tips = [
 ```
 This requires **zero LLM** — we already know which skills matched/missed and which deal-breakers fired. It brings explainable feedback to our matching engine without adding dependencies.
 
-### Priority 3 — PDF-to-Image Utility
+### Priority 2b — Real ATS parse-safety (not keyword overlap) — ✅ DONE
+
+**Problem found during adoption:** Priority 2 wired the `ATS` rubric dimension to
+the per-job keyword TF-IDF overlap (`ats_score = keyword_score`). That measures
+match strength with this posting, not ATS parseability — the two are unrelated.
+A CV can match a job perfectly and still be an ATS-readability disaster
+(scanned image, missing headings, contact info in a header).
+
+**Fix:** `parser/ats_check.py::check_ats_parse_safety` grades the *document*
+itself (section headings, machine-findable email/phone, parseable dates incl.
+German `03.2019` and `Jan 2019`, text-layer density, multi-column layout).
+Computed **once at parse time** in `build_profile_from_cv` and stored in
+`profile.metadata.ats_parse_safety.score`. The pipeline feeds that pre-computed
+score into the `ATS` rubric slot (`matching/feedback_schema.py::build_feedback_dict(
+ats_parse_score=...)`), so ATS is now job-independent — identical against two
+different postings, unlike the old keyword overlap. The old keyword proxy is
+kept only as a fallback for profiles without ATS metadata (legacy).
+
+The reference repo delegated ATS to its LLM. We kept the *dimension name* and
+*explainability shape* (score + good/improve tips) but made it deterministic
+and local-first — the correct inversion for an on-device engine.
+
+**Bug fixed en route:** `scripts/match_to_pdf.py` used `pdf.multi_cell()` without
+`new_x="LMARGIN"`, so the cursor stayed at the right margin and the *second*
+tip cell (width 0) raised `FPDFException: Not enough horizontal space`. All
+`multi_cell` calls now reset the cursor. Verdict bands are also now rendered
+in the PDF.
+
+### Priority 3 — PDF-to-Image Utility — ✅ DONE
 
 Add `parser/pdf_renderer.py` with `render_first_page_to_image(pdf_path, output_path)` using `pdf2image` or `pymupdf`. Useful for visual verification of parsed output, especially for CVs where pdfminer's text extraction is degraded.
 
-### Priority 4 — UUID-Based Profile Keys
+### Priority 4 — UUID-Based Profile Keys — ✅ DONE
 
 In `profile_builder.py` or `usage_history.py`, generate a UUID for each processed profile instead of relying on file-path-derived keys. This aligns with the reference repo's `resume:${uuid}` pattern and prevents key collisions.
 
