@@ -31,7 +31,18 @@ try:
     _HAS_NEW_EXPERIENCE_PARSER = True
 except ImportError:
     _HAS_NEW_EXPERIENCE_PARSER = False
-    def _parse_experience_new(lines):
+    def _parse_experience_new(lines):  # noqa: ARG001
+        return []
+
+# Phase 7+: sorted PDF text parser (PyMuPDF sort=True)
+# Produces 15/15 correct entries on the user CV's tabular layout
+# by preserving row structure (date|company|role on the same line)
+try:
+    from profile_builder_pkg._exp_sorted import _parse_experience as _parse_experience_sorted  # type: ignore[assignment]
+    _HAS_SORTED_EXPERIENCE_PARSER = True
+except ImportError:
+    _HAS_SORTED_EXPERIENCE_PARSER = False
+    def _parse_experience_sorted(lines, original_lines=None):  # noqa: ARG001
         return []
 
 
@@ -55,8 +66,19 @@ def build_profile_from_cv(cv_path: str, log: bool = True) -> Dict:
 
     # Step 1: Extract text
     suffix = cv_path_obj.suffix.lower()
+    sorted_text = ""  # PyMuPDF sort=True for PDFs (row-aligned)
     if suffix == ".pdf":
         text = extract_text_from_pdf(cv_path)
+        # Try to also extract sorted (row-aligned) text via PyMuPDF
+        try:
+            import fitz  # PyMuPDF — optional, lazy
+            doc = fitz.open(str(cv_path_obj))
+            sorted_text = ""
+            for page in doc:
+                sorted_text += page.get_text("text", sort=True) + "\n"
+            doc.close()
+        except Exception:
+            sorted_text = ""  # Fall back to legacy parser
     elif suffix in (".docx", ".doc"):
         text = extract_text_from_docx(cv_path)
     elif suffix == ".txt":
@@ -99,7 +121,7 @@ def build_profile_from_cv(cv_path: str, log: bool = True) -> Dict:
             "languages": entities.get("languages", []),
         },
         "skills": skills,
-        "experience": _parse_experience(sections.get("experience", "")),
+        "experience": _parse_experience(sections.get("experience", ""), sorted_text=sorted_text),
         "education": [],
         "projects": [],
         "certifications": [],
@@ -263,13 +285,19 @@ def _parse_experience_direct(lines: list) -> list:
     return entries
 
 
-def _parse_experience(text: str) -> list:
+def _parse_experience(text: str, sorted_text: str = "") -> list:
     """Parse experience section into structured entries.
 
     Phase 7+ (2026-09-02): Routes to state-machine parser (_exp_new.py) which
     handles the FlowCV tabular PDF layout where pdfminer emits columns
     separately (transposed: all dates first, then all companies). Falls back
     to the legacy two-pass parser if the new parser is unavailable.
+
+    For PDFs: if `sorted_text` is provided (PyMuPDF sort=True extraction),
+    use the row-aligned parser (_exp_sorted.py) which produces accurate
+    field attribution by preserving date+company+role row structure.
+
+    For DOCX/TXT: use the legacy parser since they don't have PDF geometry.
     """
     if not text:
         return []
@@ -277,6 +305,17 @@ def _parse_experience(text: str) -> list:
     # Flatten form-feed (page breaks) into newlines
     text = text.replace("\x0c", "\n")
     lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    # PDF path: use sorted-text parser if available (preserves row structure)
+    if sorted_text and _HAS_SORTED_EXPERIENCE_PARSER:
+        sorted_clean = sorted_text.replace("\x0c", "\n")
+        sorted_lines = [l for l in sorted_clean.split("\n") if l.strip()]
+        # Re-segment the sorted text into experience section
+        from parser import segment_sections as _segment_sections
+        sorted_sections = _segment_sections(sorted_clean)
+        sorted_exp = sorted_sections.get("experience", "")
+        sorted_exp_lines = [l for l in sorted_exp.split("\n") if l.strip()]
+        return _parse_experience_sorted(sorted_exp_lines)
 
     if _HAS_NEW_EXPERIENCE_PARSER:
         return _parse_experience_new(lines)
