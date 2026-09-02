@@ -5,11 +5,45 @@ Future: ESCO API integration for canonical skill IDs.
 
 The taxonomy covers both modern dev stacks (Python, React, AWS) and
 DACH/EU enterprise stacks (SAP, BMC Remedy, Amdocs, Microsoft AD).
+
+Enhanced (2026-09-02): tabellarische Skills-Sektionen (pipe-getrennt,
+mehrspaltig) werden jetzt vor dem Keyword-Matching entflacht, damit
+Tools wie SAP, Microsoft CRM, Google Ads korrekt erkannt werden.
 """
 
 import re
 from pathlib import Path
 from typing import Dict, List, Set
+
+
+# ---------------------------------------------------------------------------
+# Table-row unflattener — collapses pipe-separated and column-aligned rows
+# into plain space-separated text so keyword matching can find skills.
+# ---------------------------------------------------------------------------
+_ROW_PIPE_RE = re.compile(r"\|")
+_COL_PAD_RE = re.compile(r"\s{3,}")
+
+
+def _flatten_table_rows(text: str) -> str:
+    """Collapse pipe-separated table rows and column-aligned rows into linear text.
+
+    FlowCV and similar tools emit skills sections as tables:
+        |SAP|R/3|Microsoft CRM|Google Ads|
+        |Python|AWS|Docker|Kubernetes|
+
+    The pipe-separated cells never reach the keyword matcher because
+    the surrounding ``|`` characters break word-boundary matching. This
+    function replaces ``|`` with spaces so the taxonomy keywords
+    inside cells are matchable again.
+
+    Also handles column-aligned (fixed-width) rows: multiple spaces
+    that act as column separators are collapsed to single spaces.
+    """
+    # Replace pipes with spaces — preserves content, removes cell delimiters
+    flattened = _ROW_PIPE_RE.sub(" ", text)
+    # Collapse runs of 3+ spaces (column padding) into a single space
+    flattened = _COL_PAD_RE.sub(" ", flattened)
+    return flattened
 
 
 # Default skill taxonomy (Phase 1: curated list, Phase 2: ESCO integration)
@@ -62,7 +96,7 @@ DEFAULT_SKILL_TAXONOMY = {
         "leadership", "communication", "teamwork", "problem-solving",
         "project management", "mentoring", "collaboration",
         "empathy", "einfühlungsvermögen", "kollaboration",
-        "organisation", "kommunikationsfähigkeit", "kommunikationsfertigkeit",
+        "organisation", "kommunikationsfertigkeit", "kommunikationsfähigkeit",
     },
     "domains": {
         "fintech", "healthtech", "edtech", "e-commerce", "saas", "iot",
@@ -106,8 +140,9 @@ def extract_skills(text: str, sections: Dict[str, str] | None = None) -> List[Di
 
     Strategy:
     1. Prefer the Skills section if available
-    2. Fall back to full-text keyword matching with word-boundary safety
-    3. Return categorized skills
+    2. Flatten pipe-separated table rows in the skills section (FlowCV format)
+    3. Fall back to full-text keyword matching with word-boundary safety
+    4. Return categorized skills
 
     Args:
         text: Full CV text.
@@ -119,7 +154,16 @@ def extract_skills(text: str, sections: Dict[str, str] | None = None) -> List[Di
     # Prefer skills section (if section segmentation found one)
     skills_text = sections.get("skills", "") if sections else ""
     if not skills_text:
+        # Fall back to full text — but we still flatten tables in it
         skills_text = text
+    else:
+        # Flatten table rows in the skills section so pipe-separated
+        # cells like |SAP| |Microsoft CRM| become matchable text
+        skills_text = _flatten_table_rows(skills_text)
+
+    # Also flatten tables in the full text fallback path
+    if skills_text == text:
+        skills_text = _flatten_table_rows(skills_text)
 
     # Extract skills by keyword matching
     found_skills: Set[str] = set()
@@ -138,3 +182,11 @@ def extract_skills(text: str, sections: Dict[str, str] | None = None) -> List[Di
         })
 
     return skills_list
+
+
+__all__ = [
+    "extract_skills",
+    "DEFAULT_SKILL_TAXONOMY",
+    "SKILL_TO_CATEGORY",
+    "flatten_table_rows",  # exported for testing
+]

@@ -117,7 +117,7 @@ def score_one_job(
     req = score_required_skills(profile, job)
     exp = score_experience(profile, job, candidate_years=candidate_years)
     pref = score_preferred(profile, job, profile_skill_names=profile_skill_names)
-    kw = compute_tfidf_similarity(profile, job)
+    kw = compute_tfidf_similarity(profile, job, language=(profile.get("metadata", {}).get("language", "en")))
 
     # Stage 3: Weighted overall
     overall = compute_overall_score(req, exp, pref, kw)

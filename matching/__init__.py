@@ -1,6 +1,6 @@
 """Matching Package — Job-candidate matching engine."""
 
-from .tfidf_matcher import compute_tfidf_similarity, profile_to_text, job_to_text
+from .tfidf_matcher import compute_tfidf_similarity, profile_to_text, job_to_text, _GERMAN_STOPWORDS, _COMBINED_STOPWORDS
 from .deal_breakers import check_deal_breakers
 from .scorer import (
     score_required_skills,
