@@ -72,7 +72,12 @@ class TestTabularExperienceParsing:
 
     def test_transposed_columns_skip_intermediate_dates(self):
         """When dates are grouped before locations (transposed layout),
-        intermediate date lines are consumed without creating empty entries."""
+        intermediate date lines are consumed and paired FIFO with companies.
+
+        Phase 7+ state-machine parser pairs orphaned dates with companies
+        in the order they appear (first date → first company), which is
+        more consistent than the legacy two-pass approach.
+        """
         text = (
             "2024 – 2025\n"
             "1100 Wien\n"
@@ -82,15 +87,16 @@ class TestTabularExperienceParsing:
             "• Task 1\n"
         )
         entries = _parse_experience(text)
-        # Two entries: 2024-2025 (skips 2023-2024 as intermediate date),
-        # 2023-2024 gets the ACME company line
+        # Two entries: dates are saved as orphaned, ACME pairs FIFO with first date
         assert len(entries) >= 2
         first = entries[0]
         assert first["startDate"] == "2024-01-01"
         assert first["location"] == "1100 Wien"
-        # The company line goes to the second entry (2023-2024)
+        assert "ACME GmbH" in first["company"]
+        # Second entry: 2023-2024 (the second orphaned date, no company)
         second = entries[1]
-        assert "ACME GmbH" in second["company"] or "ACME GmbH" in second["summary"]
+        assert second["startDate"] == "2023-01-01"
+        assert second["location"] == "1140 Wien"
 
 
 class TestGermanStopwords:
@@ -168,6 +174,65 @@ class TestEscoMappingConfidence:
         matched = sum(1 for s in skills_mix if s["name"].lower() in SKILL_TO_CATEGORY)
         expected = round(matched / len(skills_mix), 2)
         assert _esco_mapping_confidence(skills_mix) == expected
+
+
+class TestSkillProficiencyDetection:
+    """Test proficiency-level detection from German CV context."""
+
+    def test_anwendungskenntnisse_yields_intermediate(self):
+        """'Anwendungskenntnisse SAP' → SAP = intermediate (downgraded)."""
+        from parser.skill_extractor import _detect_proficiency
+        text = "Versiert in MS Office, Anwendungskenntnisse SAP R/3"
+        assert _detect_proficiency("sap", text) == "intermediate"
+        assert _detect_proficiency("ms office", text) == "advanced"
+
+    def test_versiert_yields_advanced(self):
+        """'Versiert in' marker → advanced."""
+        from parser.skill_extractor import _detect_proficiency
+        text = "Versiert in MS Office"
+        assert _detect_proficiency("ms office", text) == "advanced"
+
+    def test_grundkenntnisse_yields_beginner(self):
+        """'Grundkenntnisse' marker → beginner."""
+        from parser.skill_extractor import _detect_proficiency
+        text = "Grundkenntnisse in Python"
+        assert _detect_proficiency("python", text) == "beginner"
+
+    def test_experte_yields_expert(self):
+        """'Experte/Expertenwissen' marker → expert."""
+        from parser.skill_extractor import _detect_proficiency
+        text = "Experte für Kubernetes und Docker"
+        assert _detect_proficiency("kubernetes", text) == "expert"
+
+    def test_no_marker_defaults_to_advanced(self):
+        """No proficiency marker → 'advanced' default (conservative)."""
+        from parser.skill_extractor import _detect_proficiency
+        text = "Python, Java, React"
+        assert _detect_proficiency("python", text) == "advanced"
+        assert _detect_proficiency("java", text) == "advanced"
+
+    def test_lowest_proficiency_wins(self):
+        """When multiple markers exist for same skill in same vicinity, lowest wins."""
+        from parser.skill_extractor import _detect_proficiency
+        # Both markers within the 25-char window of 'python'
+        text = "Versiert in Python aber Grundkenntnisse Python"
+        assert _detect_proficiency("python", text) == "beginner"
+
+    def test_extract_skills_returns_proficiency_levels(self):
+        """extract_skills returns mix of proficiency levels based on context."""
+        from parser.skill_extractor import extract_skills
+        text = (
+            "Versiert in MS Office. "
+            "Anwendungskenntnisse SAP. "
+            "Grundkenntnisse Python. "
+            "Experte für React."
+        )
+        skills = extract_skills(text)
+        skill_map = {s["name"]: s["proficiency"] for s in skills}
+        assert skill_map.get("ms office") == "advanced"
+        assert skill_map.get("sap") == "intermediate"
+        assert skill_map.get("python") == "beginner"
+        assert skill_map.get("react") == "expert"
 
 
 class TestProfileBuilderIntegration:

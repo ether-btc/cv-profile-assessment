@@ -25,6 +25,15 @@ from parser import (
 )
 from cv_profile_assessment import detect_language, log_processing_run
 
+# Import the new state-machine experience parser (Phase 7+: transposed + direct format)
+try:
+    from profile_builder_pkg._exp_new import _parse_experience as _parse_experience_new
+    _HAS_NEW_EXPERIENCE_PARSER = True
+except ImportError:
+    _HAS_NEW_EXPERIENCE_PARSER = False
+    def _parse_experience_new(lines):
+        return []
+
 
 def build_profile_from_cv(cv_path: str, log: bool = True) -> Dict:
     """Build a PersonalProfile dict from a CV file (PDF or DOCX).
@@ -179,114 +188,66 @@ def _esco_mapping_confidence(skills: List[Dict]) -> float:
     return round(matched / len(skills), 2)
 
 
-def _parse_experience(text: str) -> list:
-    """Parse experience section into structured entries.
+def _normalize_end_year(end_year: str) -> str:
+    """Normalize end year: 'Present'/'derzeit'/'aktuell' → 'Present'."""
+    if end_year.lower() in ("present", "derzeit", "aktuell"):
+        return "Present"
+    return end_year
 
-    Phase 2 (2026-09-02): Enhanced to handle:
-    - German date ranges: "2024 – 2025", "2022 – 2023" (en/em-dash)
-    - Pipe-separated tabular rows: |2010 – 2011||T-Mobile Austria,|...
-    - Location lines following dates (e.g. "1100 Wien")
-    - Company + role on same line with comma separator
-    - Bullet-point summaries under each entry
-    - Form-feed separated table rows (pdfminer emits \\x0c for page breaks)
-    - Multi-page tabular experience sections
 
-    Phase 1: simple line-based parsing (placeholder).
+def _parse_experience_direct(lines: list) -> list:
+    """Fallback parser for non-tabular, line-based experience sections.
+    
+    Direct format: date → location → company,role → bullets
     """
-    if not text:
-        return []
-
-    # Split on form-feed (page breaks) AND newlines, then flatten
-    # This ensures table rows split across pages are still parsed
-    text = text.replace("\x0c", "\n")
     entries = []
-    lines = [l.strip() for l in text.split("\n") if l.strip()]
     i = 0
-
     while i < len(lines):
         line = lines[i]
-
-        # --- Tabellarische Zeilen (pipe-getrennt) ---
-        # Format: |2010 – 2011||T-Mobile Austria,||Projektmitarbeit|
-        if line.startswith("|"):
-            entry = _parse_pipe_table_row(line)
-            if entry:
-                entries.append(entry)
-                i += 1
-                continue
-
-        # --- Tabellarische Zeilen (form-feed getrennt, pdfminer) ---
-        # Format: "2010 – 2011  T-Mobile Austria,  Projektmitarbeit"
-        # These come from pipe-separated table rows where pdfminer
-        # lost the pipe characters but kept the cell content as separate
-        # lines (due to vertical positioning in the table).
-        # We detect these by checking if a date-only line is followed by
-        # a line that starts with a company name (no bullet, no @).
-        date_only_match = re.match(
-            r"^(\d{4})\s*[–—-]\s*(\d{4})$",
-            line, re.IGNORECASE
-        )
-        if date_only_match:
-            start_year = date_only_match.group(1)
-            end_raw = date_only_match.group(2)
-            entry = _parse_tabular_entry(lines, i, start_year, end_raw)
-            if entry:
-                # Consume the right number of lines
-                i = entry.pop("_next_i", i + 1)
-                entries.append(entry)
-                continue
-
-        # --- Datums-basierte Einträge (line-based) ---
-        # Format: "2024 – 2025" followed optionally by "1100 Wien"
+        
+        # Date line
         date_match = re.match(
-            r"^(\d{4})\s*[–—-]\s*(\d{4}|\b(?:Present|derzeit|aktuell)\b)",
+            r"^(\d{4})\s*[–—-]\s*(\d{4}|(?:Present|derzeit|aktuell))",
             line, re.IGNORECASE
         )
         if date_match:
             start_year = date_match.group(1)
-            end_raw = date_match.group(2)
-            end_year = "Present" if end_raw.lower() in ("present", "derzeit", "aktuell") else end_raw
-
+            end_year = _normalize_end_year(date_match.group(2))
             i += 1
-            # Next line might be a location (4-digit postal + city)
+            
+            # Optional location
             location = ""
-            if i < len(lines):
-                loc_match = re.match(r"^\d{3,4}\s+.+", lines[i])
-                if loc_match:
-                    location = lines[i]
-                    i += 1
-
-            # Next line: company + role or just company
-            company = ""
-            position = ""
+            if i < len(lines) and re.match(r"^\d{3,4}\s+.+", lines[i]):
+                location = lines[i]
+                i += 1
+            
+            # Company + role
+            company, position = "", ""
             if i < len(lines):
                 candidate = lines[i]
-                # "Company, Role" or "Company @ Role" or just "Company"
                 if "," in candidate and not candidate.startswith("•"):
                     parts = candidate.split(",", 1)
                     company = parts[0].strip()
-                    position = parts[1].strip()
+                    position = parts[1].strip() if len(parts) > 1 else ""
                 elif "@" in candidate:
                     parts = candidate.split("@", 1)
-                    company = parts[1].strip()
                     position = parts[0].strip()
+                    company = parts[1].strip()
                 else:
                     company = candidate
                 i += 1
-
-            # Collect bullet points until next date or end
+            
+            # Collect bullets
             bullets = []
             while i < len(lines):
-                next_line = lines[i]
-                if next_line.startswith("|"):
+                b = lines[i]
+                if re.match(r"^\d{4}\s*[–—-]", b):
                     break
-                if re.match(r"^\d{4}\s*[–—-]", next_line):
+                if b.startswith("BERUFSSCHULUNG") or b.startswith("AUSBILDUNG") or b.startswith("WEITERBILDUNG"):
                     break
-                if next_line.startswith("BERUFSSCHULUNG") or next_line.startswith("AUSBILDUNG") or next_line.startswith("WEITERBILDUNG"):
-                    break
-                bullets.append(next_line)
+                bullets.append(b)
                 i += 1
-
+            
             entries.append({
                 "position": position or company,
                 "company": company,
@@ -297,28 +258,236 @@ def _parse_experience(text: str) -> list:
                 "skills_used": [],
             })
             continue
+        
+        i += 1
+    return entries
 
-        # Fallback: line-based parsing (Phase 1)
-        if "@" in line:
-            parts = line.split("@", 1)
-            position = parts[0].strip()
-            company = parts[1].strip()
-            bullets = []
+
+def _parse_experience(text: str) -> list:
+    """Parse experience section into structured entries.
+
+    Phase 7+ (2026-09-02): Routes to state-machine parser (_exp_new.py) which
+    handles the FlowCV tabular PDF layout where pdfminer emits columns
+    separately (transposed: all dates first, then all companies). Falls back
+    to the legacy two-pass parser if the new parser is unavailable.
+    """
+    if not text:
+        return []
+
+    # Flatten form-feed (page breaks) into newlines
+    text = text.replace("\x0c", "\n")
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    if _HAS_NEW_EXPERIENCE_PARSER:
+        return _parse_experience_new(lines)
+
+    return _parse_experience_legacy(text)
+
+
+def _parse_experience_legacy(text: str) -> list:
+    """Legacy two-pass experience parser (kept as fallback).
+
+    Many FlowCV tabular templates render experience as a 5-column table:
+    | Date | Location | Company | Role | Description |
+    When pdfminer/pdfminer.six extracts text from such tables, it often
+    emits columns separately (transposed layout):
+      - All date lines first (2024 – 2025, 2023 – 2024, ...)
+      - All location lines (1100 Wien, 1140 Wien, ...)
+      - All company/role lines (ipcenter.at GmbH, Outplacement, ...)
+
+    Pass 1: Scan for date-location pairs and company-role blocks.
+    Pass 2: Interleave pairs → full entries with correct attribution.
+
+    Also handles:
+    - Pipe-separated rows: |2010 – 2011||T-Mobile Austria,||Projektmitarbeit|
+    - Direct format: date → location → company,role → bullets (non-transposed)
+    - Form-feed \x0c page-break flattening
+    """
+    if not text:
+        return []
+
+    # Flatten form-feed (page breaks) into newlines
+    text = text.replace("\x0c", "\n")
+    lines = [l.strip() for l in text.split("\n") if l.strip()]
+
+    # --- Pass 1: Collect date/location pairs and company blocks ---
+    date_location_pairs = []  # [(start_year, end_year, location), ...
+    company_blocks = []        # [{company, position, bullets}, ...
+    entries = []               # pipe-table entries collected in Pass 1
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+
+        # --- Tabellarische Zeilen (pipe-getrennt) ---
+        if line.startswith("|"):
+            entry = _parse_pipe_table_row(line)
+            if entry and (entry.get("company") or entry.get("position")):
+                entries.append(entry)
             i += 1
-            while i < len(lines):
-                next_line = lines[i]
-                if "@" in next_line or re.match(r"^\d{4}", next_line):
+            continue
+
+        # --- Date-only line (start of a date/location pair) ---
+        date_only_match = re.match(
+            r"^(\d{4})\s*[–—-]\s*(\d{4})$",
+            line, re.IGNORECASE
+        )
+        if date_only_match:
+            start_year = date_only_match.group(1)
+            end_year = date_only_match.group(2)
+            location = ""
+
+            # Next line might be a location (4-digit postal + city)
+            j = i + 1
+            if j < len(lines):
+                loc_match = re.match(r"^(\d{3,4})\s+.+", lines[j])
+                if loc_match:
+                    location = lines[j]
+                    j += 1
+
+            date_location_pairs.append((start_year, end_year, location))
+            i = j  # Continue from after location
+            continue
+
+        # --- Company/role line (direct format or transposed) ---
+        # "Company, Role" or "Company @ Role" or "Position @ Company"
+        # Only treat as a company block if:
+        # 1. Not a bullet point (no leading •)
+        # 2. Not a date line (no 20xx–20xx pattern)
+        # 3. Contains a comma (Company, Role pattern)
+        # 4. The first part looks like a company name OR the line contains
+        #    known company suffixes (GmbH, AG, KG, s.r.o., etc.)
+        if "," in line and not line.startswith("•") and not re.match(r"^\d{4}", line):
+            parts = line.split(",", 1)
+            company_candidate = parts[0].strip()
+            # Check if this looks like a company name — either a known suffix
+            # or the line follows a date/location pair (transposed mode)
+            has_company_suffix = bool(re.search(
+                r"\b(GmbH|AG|KG|s\.r\.o\.|S\.A\.|LLC|Inc|Co)\.?",
+                company_candidate, re.IGNORECASE
+            ))
+            # In transposed mode: dates come first, then companies
+            # Heuristic: if we've collected date_location_pairs but no company_blocks yet,
+            # or the line has a known company suffix, treat as company block
+            is_transposed_start = (
+                date_location_pairs
+                and len(company_blocks) == 0
+            )
+            # Also accept lines with known company suffixes regardless of position
+            if has_company_suffix or is_transposed_start or not date_location_pairs:
+                if not re.match(r"^\d{3,4}\s", company_candidate):
+                    position = parts[1].strip() if len(parts) > 1 else ""
+                    # Collect bullets
+                    bullets = []
+                    i += 1
+                    while i < len(lines):
+                        b = lines[i]
+                        # Stop at dates, pagination, pipe rows, or section markers
+                        if re.match(r"^\d{4}\s*[–—-]", b):
+                            break
+                        if b.startswith("•"):
+                            bullets.append(b)
+                            i += 1
+                        elif b.startswith("BERUFSSCHULUNG") or b.startswith("AUSBILDUNG") or b.startswith("WEITERBILDUNG"):
+                            i -= 1  # Let the outer loop handle section transitions
+                            break
+                        else:
+                            # Non-bullet line — could be continuation or new company
+                            break
+                    company_blocks.append({
+                        "company": company_candidate,
+                        "position": position,
+                        "bullets": bullets,
+                    })
+                    continue
+
+        i += 1
+
+    # --- Pass 2: Build entries from transposed structure ---
+    # Extend entries (pipe-table entries from Pass 1 are preserved)
+    transposed_entries = []
+
+    if date_location_pairs and company_blocks:
+        # Pair date_location_pairs with company_blocks FIFO
+        paired = set()
+        for dl_idx, (start_year, end_year, location) in enumerate(date_location_pairs):
+            for cb_idx, cb in enumerate(company_blocks):
+                if cb_idx in paired:
+                    continue
+                transposed_entries.append({
+                    "position": cb["position"] or cb["company"],
+                    "company": cb["company"],
+                    "startDate": f"{start_year}-01-01",
+                    "endDate": _normalize_end_year(end_year),
+                    "location": location,
+                    "summary": "\n".join(cb["bullets"]),
+                    "skills_used": [],
+                })
+                paired.add(cb_idx)
+                break
+
+        # Add remaining date/location pairs without companies
+        for dl_idx, (start_year, end_year, location) in enumerate(date_location_pairs):
+            already_used = False
+            for entry in transposed_entries:
+                if entry["startDate"] == f"{start_year}-01-01" and entry["location"] == location:
+                    already_used = True
                     break
-                bullets.append(next_line)
-                i += 1
-            entries.append({
-                "position": position,
-                "company": company,
-                "summary": "\n".join(bullets),
-                "skills_used": [],
-            })
-        else:
-            i += 1
+            if not already_used:
+                transposed_entries.append({
+                    "position": "",
+                    "company": "",
+                    "startDate": f"{start_year}-01-01",
+                    "endDate": _normalize_end_year(end_year),
+                    "location": location,
+                    "summary": "",
+                    "skills_used": [],
+                })
+
+        # Add unpaired company blocks
+        for cb_idx, cb in enumerate(company_blocks):
+            if cb_idx not in paired:
+                transposed_entries.append({
+                    "position": cb["position"] or cb["company"],
+                    "company": cb["company"],
+                    "startDate": "",
+                    "endDate": "",
+                    "location": "",
+                    "summary": "\n".join(cb["bullets"]),
+                    "skills_used": [],
+                })
+
+    if transposed_entries:
+        entries.extend(transposed_entries)
+    elif not entries:
+        # Fallback to direct parsing for non-tabular experience
+        entries = _parse_experience_direct(lines)
+
+    # Merge: if some entries have empty companies, try to fill gaps
+    # from direct parsing (handles mixed transposed + direct format CVs)
+    has_gaps = any(not e.get("company") for e in entries)
+    if has_gaps:
+        direct_entries = _parse_experience_direct(lines)
+        if direct_entries:
+            # Build a lookup: startDate → best entry
+            merged = {}
+            for e in entries:
+                key = e.get("startDate", "")
+                merged[key] = e
+
+            for e in direct_entries:
+                key = e.get("startDate", "")
+                # Only use direct entry if two-pass entry is missing company
+                if key in merged and not merged[key].get("company"):
+                    if e.get("company") and e.get("company") != e.get("position", ""):
+                        merged[key]["company"] = e["company"]
+                        merged[key]["position"] = e.get("position", "") or e["company"]
+                        merged[key]["summary"] = e.get("summary", "") or merged[key].get("summary", "")
+                elif key not in merged:
+                    # Date not in two-pass results — add it
+                    merged[key] = e
+
+            entries = list(merged.values())
+            entries.sort(key=lambda x: x.get("startDate", "") or "9999")
 
     return entries
 

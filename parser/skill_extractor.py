@@ -124,6 +124,77 @@ for category, skills in DEFAULT_SKILL_TAXONOMY.items():
 _SKILLS_SORTED = sorted(SKILL_TO_CATEGORY.keys(), key=len, reverse=True)
 
 
+# ---------------------------------------------------------------------------
+# Proficiency markers — German CVs use qualifying phrases before/after skill names.
+# Order: check most-specific first (e.g. "anwendungskenntnisse" before "kenntnisse")
+# ---------------------------------------------------------------------------
+_PROFICIENCY_MARKERS: List[tuple] = [
+    # Expert-level (most specific first)
+    (r"\b(?:experte|expert|expertenwissen|umfassende\s+kenntnisse|tiefgreifende\s+kenntnisse)\b", "expert"),
+    (r"\b(?:versiert|fundiert|sehr\s+gute\s+kenntnisse|umfangreiche\s+kenntnisse|beherrsch[st])\b", "advanced"),
+    (r"\b(?:gute\s+kenntnisse|anwendungskenntnisse|solide\s+kenntnisse|praxis(?:erfahrung)?)\b", "intermediate"),
+    (r"\b(?:grundkenntnisse|basiskenntnisse|einsteiger|erste\s+kenntnisse|vorkenntnisse)\b", "beginner"),
+]
+
+_PROFICIENCY_KEYWORDS = [
+    "expert", "experte", "expertenwissen",
+    "versiert", "fundiert", "sehr gute kenntnisse",
+    "umfassend", "tiefgreifend", "umfangreich",
+    "gute kenntnisse", "anwendungskenntnisse", "solide kenntnisse",
+    "praxis", "erfahrung", "kenntnisse",
+    "grundkenntnisse", "basiskenntnisse", "einsteiger", "vorkenntnisse",
+]
+
+
+def _detect_proficiency(skill: str, skills_text: str) -> str:
+    """Detect proficiency level for a skill based on surrounding context.
+
+    Looks for proficiency qualifiers within ~25 characters before/after
+    the skill mention in the original text. Defaults to "advanced"
+    when no marker is found (most CVs list skills they're confident in).
+
+    German CV markers (most-specific → least-specific):
+      expert:    Experte, Expertenwissen, umfassende Kenntnisse
+      advanced:  Versiert, Fundiert, sehr gute Kenntnisse
+      intermediate: Gute Kenntnisse, Anwendungskenntnisse, solide Kenntnisse
+      beginner:  Grundkenntnisse, Basiskenntnisse, Vorkenntnisse
+
+    Conservative approach: only DOWNGRADE from the "advanced" default when
+    explicit weak-proficiency markers are present in the immediate vicinity
+    of the skill mention (within 25 chars — close enough to be the
+    qualifying phrase for THIS specific skill).
+    """
+    lower_text = skills_text.lower()
+    # Find all positions of the skill
+    skill_lower = skill.lower()
+    pattern = r"(?<![a-z0-9])" + re.escape(skill_lower) + r"(?![a-z0-9])"
+    matches = list(re.finditer(pattern, lower_text))
+    if not matches:
+        return "advanced"
+
+    # Track the MOST RESTRICTIVE proficiency found (lowest level wins on ties)
+    best_level = None
+    level_order = {"expert": 4, "advanced": 3, "intermediate": 2, "beginner": 1}
+    for m in matches:
+        # German CVs typically qualify skills BEFORE the skill name:
+        #   "Versiert in MS Office" / "Anwendungskenntnisse SAP" / "Grundkenntnisse Python"
+        #   "Experte für React" / "Expertenwissen in Kubernetes"
+        # Markers AFTER the skill are usually qualifying a DIFFERENT skill
+        # mentioned later (e.g. "...Python. Experte für React" → Grundkenntnisse
+        # qualifies Python, NOT the upcoming React).
+        start = max(0, m.start() - 30)
+        end = m.start()  # Do NOT include text after the skill
+        context = lower_text[start:end]
+        # Check proficiency markers (most-specific first)
+        for marker_pattern, level in _PROFICIENCY_MARKERS:
+            if re.search(marker_pattern, context):
+                # Take the LOWEST (most restrictive) level found across matches
+                if best_level is None or level_order[level] < level_order[best_level]:
+                    best_level = level
+                break  # First match wins per occurrence (most-specific)
+    return best_level or "advanced"
+
+
 def _word_boundary_match(token: str, text: str) -> bool:
     """Match token with word boundaries using lookahead/lookbehind.
 
@@ -171,14 +242,13 @@ def extract_skills(text: str, sections: Dict[str, str] | None = None) -> List[Di
         if _word_boundary_match(skill, skills_text):
             found_skills.add(skill)
 
-    # Build categorized output — proficiency defaults to "advanced" to match
-    # Phase 1 behavior. Phase 2 should extract proficiency from CV context.
+    # Build categorized output with proficiency detection from context
     skills_list = []
     for skill in sorted(found_skills):
         skills_list.append({
             "name": skill,
             "category": SKILL_TO_CATEGORY[skill],
-            "proficiency": "advanced",
+            "proficiency": _detect_proficiency(skill, skills_text),
         })
 
     return skills_list
